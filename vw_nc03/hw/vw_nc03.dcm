@@ -1,0 +1,15 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP ATA6560
+D High-Speed CAN Transceiver, silent mode, SOIC-8
+K High-Speed CAN Transceiver
+F http://www.nxp.com/documents/data_sheet/TJA1051.pdf
+$ENDCMP
+#
+$CMP NUC131LxxAE
+D ARM Cortex-M0 MCU, 32KB flash, 4KB RAM, 48MHz, 2.4-3.6V, 39 GPIO, LQFP-48
+K ARM Cortex-M0 STM32F0 STM32F0x0 Value Line
+F http://www.st.com/st-web-ui/static/active/en/resource/technical/document/datasheet/DM00088500.pdf
+$ENDCMP
+#
+#End Doc Library
