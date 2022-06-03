@@ -203,6 +203,9 @@ void print_debug(void)
 		case e_car_xc90_2007my:
 			scar = "XC90 2007MY";
 			break;
+		case e_car_skoda_fabia:
+			scar = "SKODA FABIA";
+			break;
 		default:
 			break;
 	}

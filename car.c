@@ -550,6 +550,182 @@ struct msg_desc_t xc90_2007my_ms[] =
 	{ 0x2006428, 120, 0, 0, xc90_2007my_ms_acc_handler },
 };
 
+
+static void skoda_fabia_ms_wheel_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		carstate.wheel = 0;
+		return;
+	}
+
+	uint8_t angle = msg[6] & 0x3f;
+	uint8_t wheel = scale(angle, 0, 0x3f, 0, 100);
+
+	if (msg[5] & 0x04)
+		carstate.wheel = wheel;
+	else
+		carstate.wheel = -wheel;
+}
+
+static void skoda_fabia_ms_gear_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		carstate.selector = STATE_UNDEF;
+		return;
+	}
+
+	if (msg[0] & 0x02)
+		carstate.selector = e_selector_r;
+	else
+		carstate.selector = STATE_UNDEF;
+}
+
+static void skoda_fabia_ms_illum_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		carstate.illum = STATE_UNDEF;
+
+		return;
+	}
+
+	carstate.illum = scale(msg[0], 0, 0xff, 0, 100);
+}
+
+static void skoda_fabia_ms_park_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		carstate.park_break = STATE_UNDEF;
+		return;
+	}
+
+	carstate.park_break = (msg[0] & 0x20) ? 1 : 0;
+}
+
+static void skoda_fabia_ms_rem_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		carstate.fl_door = STATE_UNDEF;
+		carstate.fr_door = STATE_UNDEF;
+		carstate.rl_door = STATE_UNDEF;
+		carstate.rr_door = STATE_UNDEF;
+		carstate.bonnet = STATE_UNDEF;
+		carstate.tailgate = STATE_UNDEF;
+
+		carstate.radar[0] = STATE_UNDEF;
+		return;
+	}
+
+	carstate.fl_door = (msg[0] & 0x01) ? 1 : 0;
+	carstate.fr_door = (msg[0] & 0x02) ? 1 : 0;
+	carstate.rl_door = (msg[0] & 0x04) ? 1 : 0;
+	carstate.rr_door = (msg[0] & 0x08) ? 1 : 0;
+	carstate.bonnet = (msg[1] & 0x08) ? 1 : 0;
+	carstate.tailgate = (msg[1] & 0x02) ? 1 : 0;
+
+	uint32_t v = (msg[3] >> 3) & 0x1f;
+	uint8_t who = msg[3] & 0x7;
+	uint32_t rear = (v << 15) | (v << 10) | (v << 5) | v;
+	uint32_t front = 0;
+
+	uint8_t on = (msg[2] & 0x01) ? 0x1 : 0x0;
+	if (e_selector_r != car_get_selector())
+		on = 0x0;
+
+	carstate.radar[0] = on ? 0x70 : 0x0;
+	carstate.radar[1] = (v << 3) | who;
+	carstate.radar[2] = rear >> 16;
+	carstate.radar[3] = rear >> 8;
+	carstate.radar[4] = rear;
+	carstate.radar[5] = front >> 16;
+	carstate.radar[6] = front >> 8;
+	carstate.radar[7] = front;
+}
+
+static void skoda_fabia_ms_swm_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		key_state.key_volume = STATE_UNDEF;
+		key_state.key_mode = STATE_UNDEF;
+		key_state.key_prev = STATE_UNDEF;
+		key_state.key_next = STATE_UNDEF;
+
+		return;
+	}
+
+#if 0
+	//up
+	if (!(msg[7] & 0x08)) {
+
+		if ((key_state.key_volume != 1) && key_state.key_cb && key_state.key_cb->inc_volume)
+			key_state.key_cb->inc_volume(1);
+
+		key_state.key_volume = 1;
+	}
+	//down
+	else if (!(msg[7] & 0x04)) {
+
+		if ((key_state.key_volume != 0) && key_state.key_cb && key_state.key_cb->dec_volume)
+			key_state.key_cb->dec_volume(1);
+
+		key_state.key_volume = 0;
+	}
+	else
+		key_state.key_volume = STATE_UNDEF;
+#endif
+
+	//PREV
+	uint8_t key_prev = msg[7] & 0x01;
+	//1->0 short release
+	if ((key_state.key_prev == 1) && (key_prev == 0) && key_state.key_cb && key_state.key_cb->prev)
+		key_state.key_cb->prev();
+	key_state.key_prev = key_prev;
+
+	//NEXT
+	uint8_t key_next = (msg[7] >> 1) & 0x01;
+	//1->0 short release
+	if ((key_state.key_next == 1) && (key_next == 0) && key_state.key_cb && key_state.key_cb->next)
+		key_state.key_cb->next();
+	key_state.key_next = key_next;
+}
+
+static void skoda_fabia_ms_acc_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+
+		carstate.acc = STATE_UNDEF;
+		carstate.ign = STATE_UNDEF;
+
+		return;
+	}
+
+	if (msg[0] & 0x01)
+		carstate.acc = 1;
+	else
+		carstate.acc = 0;
+
+	if (msg[0] & 0x07)
+		carstate.ign = 1;
+	else
+		carstate.ign = 0;
+}
+
+struct msg_desc_t skoda_fabia_ms[] =
+{
+	{ 0x621, 100, 0, 0, skoda_fabia_ms_illum_handler },
+	{ 0x131726c, 25, 0, 0, skoda_fabia_ms_swm_handler },
+	{ 0x371, 200, 0, 0, skoda_fabia_ms_rem_handler },
+	{ 0x2510020, 80, 0, 0, skoda_fabia_ms_wheel_handler },
+	{ 0x635, 200, 0, 0, skoda_fabia_ms_park_handler },
+	{ 0x351, 100, 0, 0, skoda_fabia_ms_gear_handler },
+	{ 0x271, 100, 0, 0, skoda_fabia_ms_acc_handler },
+};
+
 static void in_process(struct can_t * can, uint8_t ticks, struct msg_desc_t * msg_desc, uint8_t desc_num)
 {
 	uint8_t msgs_num = hw_can_get_msg_nums(can);
@@ -604,6 +780,11 @@ void car_init(enum e_car_t car, struct key_cb_t * cb)
 	carstate.park_break = STATE_UNDEF,
 
 	key_state.key_cb = cb;
+
+	e_speed_t speed = e_speed_125;
+	if (car == e_car_skoda_fabia)
+		speed = e_speed_100;
+	hw_can_set_speed(hw_can_get_mscan(), speed);
 }
 
 enum e_car_t car_get_car(void)
@@ -625,6 +806,9 @@ void car_process(uint8_t ticks)
 			break;
 		case e_car_xc90_2007my:
 			in_process(can, ticks, xc90_2007my_ms, sizeof(xc90_2007my_ms)/sizeof(xc90_2007my_ms[0]));
+			break;
+		case e_car_skoda_fabia:
+			in_process(can, ticks, skoda_fabia_ms, sizeof(skoda_fabia_ms)/sizeof(skoda_fabia_ms[0]));
 			break;
 		default:
 			break;
