@@ -19,6 +19,7 @@ typedef struct speed_t
 /* APB1 36 MHz 87.5% sjw=1 */
 static speed_t speeds[e_speed_nums] = 
 {
+	{ CAN_BTR_SJW_1TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 22 },
 	{ CAN_BTR_SJW_1TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 18 },
 	{ CAN_BTR_SJW_1TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 9 },
 	{ CAN_BTR_SJW_1TQ, CAN_BTR_TS1_15TQ, CAN_BTR_TS2_2TQ, 4 },
@@ -28,6 +29,7 @@ static speed_t speeds[e_speed_nums] =
 /* APB1 36 MHz 75% sjw=2 */
 static speed_t speeds[e_speed_nums] = 
 {
+	{ CAN_BTR_SJW_2TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_4TQ, 20 },
 	{ CAN_BTR_SJW_2TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_4TQ, 16 },
 	{ CAN_BTR_SJW_2TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_4TQ, 8 },
 	{ CAN_BTR_SJW_2TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_4TQ, 4 },
@@ -73,7 +75,7 @@ struct can_t * hw_can_get_mscan(void)
 	return &can1;
 }
 
-uint8_t can_set_speed(struct can_t * can, e_speed_t speed)
+uint8_t hw_can_set_speed(struct can_t * can, e_speed_t speed)
 {
 	nvic_disable_irq(can->irq);
 	can_disable_irq(can->baddr, CAN_IER_FMPIE0);
@@ -150,7 +152,7 @@ uint8_t hw_can_setup(struct can_t * can, e_speed_t speed)
 	nvic_enable_irq(can->irq);
 	nvic_set_priority(can->irq, 1);
 
-	return can_set_speed(can, speed);
+	return hw_can_set_speed(can, speed);
 }
 
 void hw_can_disable(struct can_t * can)

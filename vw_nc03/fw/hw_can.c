@@ -142,7 +142,7 @@ uint8_t hw_can_get_msg(can_t * can, struct msg_can_t * msg, uint8_t idx)
 	return 1;
 }
 
-uint32_t speeds[e_speed_nums] = { 125000, 250000, 500000, 1000000 };
+uint32_t speeds[e_speed_nums] = { 100000, 125000, 250000, 500000, 1000000 };
 
 int32_t CAN_SetRxMsgObjAndMsk(CAN_T *tCAN, uint8_t u8MsgObj, uint8_t u8idType, uint32_t u32id, uint32_t u32idmask, uint8_t u8singleOrFifoLast);
 
@@ -178,6 +178,12 @@ uint8_t hw_can_setup(struct can_t * can, e_speed_t speed)
 		return 1;
 	}
 
+	return 0;
+}
+
+uint8_t hw_can_set_speed(struct can_t * can, e_speed_t speed)
+{
+	CAN_SetBaudRate(can->baddr, speeds[speed]);
 	return 0;
 }
 
