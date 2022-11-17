@@ -34,12 +34,21 @@ typedef struct car_state_t
 	uint8_t park_lights;
 	uint8_t near_lights;
 	uint8_t park_break;
+	uint8_t washer;
+	uint8_t dsbelt;
+
+	uint8_t ac;
+	uint8_t ac_recirc;
+	uint8_t ac_auto_1;
+	uint8_t ac_dual;
+	uint8_t ac_fdef;
+	uint8_t ac_rdef;
 } car_state_t;
 
 static car_state_t carstate =
 {
 	.car = e_car_nums,
-	.vin = { STATE_UNDEF }, 
+	.vin = { STATE_UNDEF },
 	.acc = STATE_UNDEF,
 	.ign = STATE_UNDEF,
 	.engine = STATE_UNDEF,
@@ -60,6 +69,15 @@ static car_state_t carstate =
 	.park_lights = STATE_UNDEF,
 	.near_lights = STATE_UNDEF,
 	.park_break = STATE_UNDEF,
+	.washer = STATE_UNDEF,
+	.dsbelt = STATE_UNDEF,
+
+	.ac = STATE_UNDEF,
+	.ac_recirc = STATE_UNDEF,
+	.ac_auto_1 = STATE_UNDEF,
+	.ac_dual = STATE_UNDEF,
+	.ac_fdef = STATE_UNDEF,
+	.ac_rdef = STATE_UNDEF,
 };
 
 typedef struct key_state_t
@@ -135,7 +153,7 @@ static void lr2_2007my_ms_7e_handler(const uint8_t * msg, struct msg_desc_t * de
 
 		carstate.acc = STATE_UNDEF;
 		carstate.ign = STATE_UNDEF;
-		carstate.taho = STATE_UNDEF;
+		carstate.taho = 0;
 
 		return;
 	}
@@ -176,7 +194,7 @@ static void lr2_2007my_ms_fd_handler(const uint8_t * msg, struct msg_desc_t * de
 {
 	if (is_timeout(desc)) {
 
-		carstate.speed = STATE_UNDEF;
+		carstate.speed = 0;
 		return;
 	}
 
@@ -259,7 +277,7 @@ static void lr2_2007my_ms_405_handler(const uint8_t * msg, struct msg_desc_t * d
 	//405#1248313531333832
 }
 
-static struct msg_desc_t lr2_2007my_ms[] = 
+static struct msg_desc_t lr2_2007my_ms[] =
 {
 	{ 0x06c, 30, 0, 0, lr2_2007my_ms_6c_handler },
 	{ 0x07e, 50, 0, 0, lr2_2007my_ms_7e_handler },
@@ -348,7 +366,7 @@ static void lr2_2013my_ms_4a6_handler(const uint8_t * msg, struct msg_desc_t * d
 	carstate.radar[7] = msg[4];
 }
 
-struct msg_desc_t lr2_2013my_ms[] = 
+struct msg_desc_t lr2_2013my_ms[] =
 {
 	{ 0x10, 50, 0, 0, lr2_2013my_ms_10_handler },
 	{ 0xb8, 60, 0, 0, lr2_2013my_ms_b8_handler },
@@ -539,7 +557,7 @@ static void xc90_2007my_ms_acc_handler(const uint8_t * msg, struct msg_desc_t * 
 		carstate.ign = 0;
 }
 
-struct msg_desc_t xc90_2007my_ms[] = 
+struct msg_desc_t xc90_2007my_ms[] =
 {
 	{ 0x0217ffc, 20, 0, 0, xc90_2007my_ms_lsm0_handler },
 	{ 0x131726c, 25, 0, 0, xc90_2007my_ms_swm_handler },
@@ -550,7 +568,6 @@ struct msg_desc_t xc90_2007my_ms[] =
 	{ 0x2006428, 120, 0, 0, xc90_2007my_ms_acc_handler },
 };
 
-
 static void skoda_fabia_ms_wheel_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
 	if (is_timeout(desc)) {
@@ -559,13 +576,8 @@ static void skoda_fabia_ms_wheel_handler(const uint8_t * msg, struct msg_desc_t 
 		return;
 	}
 
-	uint8_t angle = msg[6] & 0x3f;
-	uint8_t wheel = scale(angle, 0, 0x3f, 0, 100);
+	carstate.wheel = (((uint16_t)msg[2]) << 8 | msg[1]) & 0xffff;
 
-	if (msg[5] & 0x04)
-		carstate.wheel = wheel;
-	else
-		carstate.wheel = -wheel;
 }
 
 static void skoda_fabia_ms_gear_handler(const uint8_t * msg, struct msg_desc_t * desc)
@@ -573,6 +585,7 @@ static void skoda_fabia_ms_gear_handler(const uint8_t * msg, struct msg_desc_t *
 	if (is_timeout(desc)) {
 
 		carstate.selector = STATE_UNDEF;
+		carstate.speed = 0;
 		return;
 	}
 
@@ -580,6 +593,9 @@ static void skoda_fabia_ms_gear_handler(const uint8_t * msg, struct msg_desc_t *
 		carstate.selector = e_selector_r;
 	else
 		carstate.selector = STATE_UNDEF;
+
+	carstate.speed = (((uint16_t)msg[2]) << 8 | msg[1]) & 0xffff;
+	carstate.speed /= 2;
 }
 
 static void skoda_fabia_ms_illum_handler(const uint8_t * msg, struct msg_desc_t * desc)
@@ -591,7 +607,7 @@ static void skoda_fabia_ms_illum_handler(const uint8_t * msg, struct msg_desc_t 
 		return;
 	}
 
-	carstate.illum = scale(msg[0], 0, 0xff, 0, 100);
+	carstate.illum = (msg[0] & 0x64) ? 100 : 0;
 }
 
 static void skoda_fabia_ms_park_handler(const uint8_t * msg, struct msg_desc_t * desc)
@@ -696,34 +712,58 @@ static void skoda_fabia_ms_swm_handler(const uint8_t * msg, struct msg_desc_t * 
 
 static void skoda_fabia_ms_acc_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
+	if (msg[0] == 0x01)
+		carstate.acc = 1;
+
+	if (msg[0] == 0x00)
+		carstate.acc = 0;
+
+	else
+		if (is_timeout(desc)) {
+
+			carstate.ign = STATE_UNDEF;
+
+			return;
+		}
+
+	carstate.ign = (msg[0] & 0x07) ? 1 : 0;
+}
+
+static void skoda_fabia_ms_aircon_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
 	if (is_timeout(desc)) {
 
-		carstate.acc = STATE_UNDEF;
-		carstate.ign = STATE_UNDEF;
+		carstate.ac = STATE_UNDEF;
+		return;
+	}
+
+	carstate.ac = (msg[0] & 0x10) ? 1 : 0;
+}
+
+static void skoda_fabia_ms_taho_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+    if (is_timeout(desc)) {
+
+		carstate.taho = 0;
 
 		return;
 	}
 
-	if (msg[0] & 0x01)
-		carstate.acc = 1;
-	else
-		carstate.acc = 0;
-
-	if (msg[0] & 0x07)
-		carstate.ign = 1;
-	else
-		carstate.ign = 0;
+	carstate.taho = (((uint16_t)msg[2]) << 8 | msg[1]) & 0xffff;
+	carstate.taho /= 4;
 }
 
 struct msg_desc_t skoda_fabia_ms[] =
 {
-	{ 0x621, 100, 0, 0, skoda_fabia_ms_illum_handler },
+	{ 0x635, 100, 0, 0, skoda_fabia_ms_illum_handler },
 	{ 0x131726c, 25, 0, 0, skoda_fabia_ms_swm_handler },
 	{ 0x371, 200, 0, 0, skoda_fabia_ms_rem_handler },
 	{ 0x2510020, 80, 0, 0, skoda_fabia_ms_wheel_handler },
-	{ 0x635, 200, 0, 0, skoda_fabia_ms_park_handler },
+	{ 0x621, 200, 0, 0, skoda_fabia_ms_park_handler },
 	{ 0x351, 100, 0, 0, skoda_fabia_ms_gear_handler },
 	{ 0x271, 100, 0, 0, skoda_fabia_ms_acc_handler },
+	{ 0x3e1, 200, 0, 0, skoda_fabia_ms_aircon_handler },
+	{ 0x353, 100, 0, 0, skoda_fabia_ms_taho_handler },
 };
 
 static void in_process(struct can_t * can, uint8_t ticks, struct msg_desc_t * msg_desc, uint8_t desc_num)
@@ -778,6 +818,13 @@ void car_init(enum e_car_t car, struct key_cb_t * cb)
 	carstate.park_lights = STATE_UNDEF,
 	carstate.near_lights = STATE_UNDEF,
 	carstate.park_break = STATE_UNDEF,
+
+	carstate.ac = STATE_UNDEF,
+	carstate.ac_recirc = STATE_UNDEF,
+	carstate.ac_auto_1 = STATE_UNDEF,
+	carstate.ac_dual = STATE_UNDEF,
+	carstate.ac_rdef = STATE_UNDEF,
+	carstate.ac_fdef = STATE_UNDEF,
 
 	key_state.key_cb = cb;
 
@@ -947,3 +994,84 @@ uint8_t car_get_tailgate(void)
 	return carstate.tailgate;
 }
 
+uint8_t car_get_park_break(void)
+{
+	if (carstate.park_break == STATE_UNDEF)
+		return 0;
+
+	return carstate.park_break;
+}
+
+uint8_t car_get_washer(void)
+{
+	if (carstate.washer == STATE_UNDEF)
+		return 0;
+
+	return carstate.washer;
+}
+
+uint8_t car_get_dsbelt(void)
+{
+	if (carstate.dsbelt == STATE_UNDEF)
+		return 0;
+
+	return carstate.dsbelt;
+}
+
+uint8_t car_get_ac(void)
+{
+	if (carstate.ac == STATE_UNDEF)
+		return 0;
+
+	return carstate.ac;
+}
+
+uint8_t car_get_ac_recirc(void)
+{
+	if (carstate.ac_recirc == STATE_UNDEF)
+		return 0;
+
+	return carstate.ac_recirc;
+}
+
+uint8_t car_get_ac_auto(void)
+{
+	if (carstate.ac_auto_1 == STATE_UNDEF)
+		return 0;
+
+	return carstate.ac_auto_1;
+}
+
+uint8_t car_get_ac_dual(void)
+{
+	if (carstate.ac_dual == STATE_UNDEF)
+		return 0;
+
+	return carstate.ac_dual;
+}
+
+uint8_t car_get_ac_fdef(void)
+{
+	if (carstate.ac_fdef == STATE_UNDEF)
+		return 0;
+
+	return carstate.ac_fdef;
+}
+
+uint8_t car_get_ac_rdef(void)
+{
+	if (carstate.ac_rdef == STATE_UNDEF)
+		return 0;
+
+	return carstate.ac_rdef;
+}
+
+uint16_t car_get_taho(void)
+{
+    return carstate.taho;
+}
+
+uint16_t car_get_speed(void)
+{
+    return carstate.speed;
+}

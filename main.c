@@ -204,7 +204,7 @@ void print_debug(void)
 			scar = "XC90 2007MY";
 			break;
 		case e_car_skoda_fabia:
-			scar = "SKODA FABIA";
+			scar = "SKODA FABIA 2006MY";
 			break;
 		default:
 			break;
@@ -300,7 +300,7 @@ void print_debug(void)
 
 		struct msg_can_t msg;
 		if (hw_can_get_msg(hw_can_get_mscan(), &msg, msg_idx)) {
-			
+
 			snprintf(buf, sizeof(buf), "Can%d/%d:  %08x:%02x.%02x.%02x.%02x.%02x.%02x.%02x.%02x     \r\n",
 					msg_idx + 1, msgs_num, (int)msg.id, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
 			hw_usart_write(hw_usart_get(), (uint8_t *)buf, strlen(buf));
@@ -346,6 +346,7 @@ int main(void)
 
 	car_init(conf_get_car(), &key_cb);
 
+	uint8_t acc = car_get_acc();
 	uint32_t ms_can_nums = 0;
 	uint32_t ms_can_stop_counter = 0;
 
@@ -397,6 +398,9 @@ int main(void)
 			else
 				ms_can_stop_counter = 0;
 
+			if (acc && (conf_get_car() == e_car_skoda_fabia))
+				ms_can_stop_counter = 1;
+
 			ms_can_nums = nums;
 
 			if (ms_can_stop_counter > 10) {
@@ -410,7 +414,7 @@ int main(void)
 				hw_setup();
 
 				conf_read();
-				
+
 				debug_on = 0;
 
 				wakeups++;

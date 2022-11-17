@@ -137,10 +137,22 @@ void canbox_raise_vw_door_process(void)
 	uint8_t rr_door = car_get_door_rr();
 	uint8_t tailgate = car_get_tailgate();
 	uint8_t bonnet = car_get_bonnet();
+	uint8_t park_break = car_get_park_break();
+	uint8_t lwasher = car_get_washer();
+	uint8_t dsbelt = car_get_dsbelt();
 
 	uint8_t state = 0;
 
-	if (bonnet)
+	if (conf_get_car() == e_car_skoda_fabia) {
+
+		if (dsbelt)
+			state |= 0x80;
+		if (lwasher)
+			state |= 0x40;
+		if (park_break)
+			state |= 0x20;
+	}
+	else if (bonnet)
 		state |= 0x20;
 	if (tailgate)
 		state |= 0x10;
@@ -154,6 +166,64 @@ void canbox_raise_vw_door_process(void)
 		state |= 0x01;
 
 	uint8_t buf[] = { 0x01, state };
+
+	snd_canbox_msg(0x41, buf, sizeof(buf));
+}
+
+void canbox_raise_vw_aircon_process(void)
+{
+	uint8_t ac = car_get_ac();
+	uint8_t recirc = car_get_ac_recirc();
+	uint8_t auto_1 = car_get_ac_auto();
+	uint8_t dual = car_get_ac_dual();
+	uint8_t fdef = car_get_ac_fdef();
+	uint8_t rdef = car_get_ac_rdef();
+
+	uint8_t p0 = 0;
+	uint8_t p1 = 0;
+	uint8_t p2 = 0;
+	uint8_t p3 = 0;
+	uint8_t p4 = 0;
+
+	if (ac)
+		p0 |= 0x40;
+	if (recirc)
+		p0 |= 0x20;
+	if (auto_1)
+		p0 |= 0x08;
+	if (dual)
+		p0 |= 0x04;
+	if (fdef)
+		p0 |= 0x02;
+	if (rdef)
+		p0 |= 0x01;
+
+	uint8_t buf[] = { p0, p1, p2, p3, p4, };
+
+	snd_canbox_msg(0x21, buf, sizeof(buf));
+}
+
+void canbox_raise_vw_carinfo_process(void)
+{
+	uint8_t mbuf[3] = { 0x1, 0x1, 0x1 };
+	//	if (!car_get_mileage(buf))
+	//		return;
+
+	uint16_t t_1 = car_get_taho();
+	uint16_t t1 = t_1 >> 8 & 0xff;
+	uint16_t t2 = t_1 - (t1*100);
+	uint16_t t_3 = car_get_speed();
+	uint16_t t3 = t_3 >> 8 & 0xff;
+	uint16_t t4 = t_3 - (t3*100);
+	uint8_t t5 = 0;
+	uint8_t t6 = 0;
+	uint8_t t7 = 0;
+	uint8_t t8 = 0;
+	uint8_t t9 = mbuf[0];
+	uint8_t t10 = mbuf[1];
+	uint8_t t11 = mbuf[2];
+	uint8_t t12 = 15;
+	uint8_t buf[] = { 0x02, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, };
 
 	snd_canbox_msg(0x41, buf, sizeof(buf));
 }
@@ -285,6 +355,8 @@ void canbox_process(void)
 		uint8_t rmax[4] = { 10, 10, 10, 10 };
 		canbox_raise_vw_radar_process(fmax, rmax);
 		canbox_raise_vw_door_process();
+		canbox_raise_vw_aircon_process();
+		canbox_raise_vw_carinfo_process();
 	}
 	else if (e_cb_raise_vw_mqb == conf_get_canbox()) {
 

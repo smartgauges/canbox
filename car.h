@@ -42,12 +42,23 @@ uint8_t car_get_near_lights(void);
 uint8_t car_get_illum(void);
 uint8_t car_get_vin(uint8_t * buf);
 enum e_selector_t car_get_selector(void);
+uint16_t car_get_speed(void);
+uint16_t car_get_taho(void);
 uint8_t car_get_door_fl(void);
 uint8_t car_get_door_fr(void);
 uint8_t car_get_door_rl(void);
 uint8_t car_get_door_rr(void);
 uint8_t car_get_bonnet(void);
+uint8_t car_get_park_break(void);
+uint8_t car_get_washer(void);
+uint8_t car_get_dsbelt(void);
 uint8_t car_get_tailgate(void);
+uint8_t car_get_ac(void);
+uint8_t car_get_ac_recirc(void);
+uint8_t car_get_ac_auto(void);
+uint8_t car_get_ac_dual(void);
+uint8_t car_get_ac_fdef(void);
+uint8_t car_get_ac_rdef(void);
 
 #ifdef __cplusplus
 }
