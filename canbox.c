@@ -421,3 +421,71 @@ void canbox_next(void)
 	}
 }
 
+enum rx_state
+{
+	RX_WAIT_START,
+	RX_LEN,
+	RX_CMD,
+	RX_DATA,
+	RX_CRC
+};
+
+#define RX_BUFFER_SIZE 32
+static uint8_t rx_buffer[RX_BUFFER_SIZE];
+static uint8_t rx_idx = 0;
+static uint8_t rx_state = RX_WAIT_START;
+/*header type size data chksum*/
+void canbox_find_cmd(uint8_t ch)
+{
+	switch (rx_state) {
+
+		case RX_WAIT_START:
+
+			if (ch != 0x2e)
+				break;
+
+			rx_idx = 0;
+			rx_buffer[rx_idx++] = ch;
+			rx_state = RX_CMD;
+			break;
+
+		case RX_CMD:
+
+			rx_buffer[rx_idx++] = ch;
+			rx_state = RX_LEN;
+			break;
+
+		case RX_LEN:
+
+			rx_buffer[rx_idx++] = ch;
+			rx_state = ch ? RX_DATA : RX_CRC;
+			break;
+
+		case RX_DATA:
+
+			rx_buffer[rx_idx++] = ch;
+			{
+				uint8_t len = rx_buffer[2];
+				rx_state = ((rx_idx - 2) > len) ? RX_CRC : RX_DATA;
+			}
+			break;
+
+		case RX_CRC:
+
+			rx_buffer[rx_idx++] = ch;
+			rx_state = RX_WAIT_START;
+
+			{
+				char buf[64];
+				uint8_t cmd = rx_buffer[1];
+				snprintf(buf, sizeof(buf), "\r\nnew cmd %" PRIx8 "\r\n", cmd);
+				hw_usart_write(hw_usart_get(), (uint8_t *)buf, strlen(buf));
+			}
+
+			break;
+	}
+
+	if (rx_idx > RX_BUFFER_SIZE)
+		rx_state = RX_WAIT_START;
+}
+

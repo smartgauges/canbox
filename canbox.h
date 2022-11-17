@@ -15,6 +15,8 @@ void canbox_dec_volume(uint8_t val);
 void canbox_prev(void);
 void canbox_next(void);
 
+void canbox_find_cmd(uint8_t ch);
+
 #ifdef __cplusplus
 }
 #endif

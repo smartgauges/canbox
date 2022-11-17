@@ -66,6 +66,9 @@ static void usart_process(void)
 	if (!hw_usart_read_ch(hw_usart_get(), &ch))
 		return;
 
+	if (conf_get_car() == e_car_skoda_fabia)
+		canbox_find_cmd(ch);
+
 	if (ch == 'O') {
 
 		if (debug_on_cnt++ > 10) {
