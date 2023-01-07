@@ -1,0 +1,28 @@
+LIBOPENCM3_DIR = libopencm3
+LIBOPENCM3_INCLUDES = -I$(LIBOPENCM3_DIR)/include
+F103_COMMON_FLAGS=-mcpu=cortex-m3 -mthumb -mfix-cortex-m3-ldrd -msoft-float -Wall
+F103_INCLUDES=$(COMMON_INCLUDES) $(LIBOPENCM3_INCLUDES)
+F103_CFLAGS=$(F103_COMMON_FLAGS) -DSTM32F1 $(F103_INCLUDES) $(COMMON_CFLAGS) --specs=nosys.specs 
+F103_LDFLAGS=$(F103_COMMON_FLAGS) $(COMMON_LDFLAGS) --specs=nosys.specs -nostartfiles
+
+%.stm32f1 : %.c
+	$(CC) $(F103_CFLAGS) -c $< -o $@
+
+LIBOPENCM3_OBJS = $(LIBOPENCM3_DIR)/lib/stm32/f1/gpio.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/f1/rcc.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/f1/pwr.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/f1/flash.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/gpio_common_all.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/usart_common_all.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/usart_common_f124.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/rcc_common_all.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/pwr_common_all.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/cm3/vector.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/cm3/systick.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/cm3/nvic.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/cm3/sync.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/flash_common_f01.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/can.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/iwdg_common_all.stm32f1 \
+		$(LIBOPENCM3_DIR)/lib/stm32/common/exti_common_all.stm32f1
+

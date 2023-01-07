@@ -1,0 +1,41 @@
+NUC131_BSP_DIR = vw_nc03/fw/nuc131bsp
+NUC131_BSP_INCLUDES=-I$(NUC131_BSP_DIR)/Library/CMSIS/Include  -I$(NUC131_BSP_DIR)/Library/Device/Nuvoton/NUC131/Include -I$(NUC131_BSP_DIR)/Library/StdDriver/inc
+NUC131_COMMON_FLAGS=-mcpu=cortex-m0 -mthumb -msoft-float -Wall
+NUC131_INCLUDES=$(COMMON_INCLUDES) $(NUC131_BSP_INCLUDES)
+NUC131_CFLAGS=$(NUC131_COMMON_FLAGS) $(NUC131_INCLUDES) $(COMMON_CFLAGS)
+NUC131_LDFLAGS=$(NUC131_COMMON_FLAGS) $(COMMON_LDFLAGS)
+
+%.vwo : %.c
+	$(CC) $(NUC131_CFLAGS) -c $< -o $@
+
+%.vwo : %.S
+	$(CC) $(NUC131_CFLAGS) -c $< -o $@
+
+NUC131_BSP_OBJS = $(NUC131_BSP_DIR)/Library/StdDriver/src/sys.vwo \
+		$(NUC131_BSP_DIR)/Library/StdDriver/src/clk.vwo \
+		$(NUC131_BSP_DIR)/Library/StdDriver/src/gpio.vwo \
+		$(NUC131_BSP_DIR)/Library/StdDriver/src/uart.vwo \
+		$(NUC131_BSP_DIR)/Library/StdDriver/src/can.vwo \
+		$(NUC131_BSP_DIR)/Library/StdDriver/src/fmc.vwo \
+		$(NUC131_BSP_DIR)/Library/Device/Nuvoton/NUC131/Source/system_NUC131.vwo \
+		$(NUC131_BSP_DIR)/Library/Device/Nuvoton/NUC131/Source/GCC/startup_NUC131.o
+
+VW_NC03_OBJS = vw_nc03/fw/hw_clock.vwo \
+		vw_nc03/fw/hw_can.vwo \
+		vw_nc03/fw/hw_gpio.vwo \
+		vw_nc03/fw/hw_tick.vwo \
+		vw_nc03/fw/hw_usart.vwo \
+		vw_nc03/fw/hw_sleep.vwo \
+		vw_nc03/fw/hw_conf.vwo
+
+vw_nc03.bin: main.vwo canbox.vwo ring.vwo conf.vwo car.vwo tick.vwo hw.vwo sbrk.vwo $(VW_NC03_OBJS) $(NUC131_BSP_OBJS)
+	$(CC) $^ -L. -T$(NUC131_BSP_DIR)/Library/Device/Nuvoton/NUC131/Source/GCC/gcc_arm.ld $(NUC131_LDFLAGS) $(NUC131_INCLUDES) -Wl,-Map=vw_nc03.map -o vw_nc03.elf
+	$(OBJCOPY) -O binary vw_nc03.elf $@
+
+flash_vw_nc03: vw_nc03.bin
+	/opt/openocd-nuvoton/bin/openocd -f vw_nc03/fw/nuc131.cfg -c "init; reset halt; numicro chip_erase;program vw_nc03.bin 0x0 verify; reset;exit"
+
+test_nuc:
+	/opt/openocd-nuvoton/bin/openocd -f vw_nc03/fw/nuc131.cfg -c "init; targets; halt; targets; mdw 0xe000ed00; mdw 0x50000000; reset; exit"
+
+
