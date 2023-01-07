@@ -204,11 +204,13 @@ static void can_isr(struct can_t * can)
 	uint32_t fmi;
 	struct msg_can_t msg;
 	uint8_t i, j;
+	uint32_t id = 0;
 
 	can_isr_cnt++;
-
 	bool rtr = 0, ext = 0;
-	can_receive(can->baddr, 0, false, &msg.id, &ext, &rtr, &fmi, &msg.len, msg.data);
+
+	can_receive(can->baddr, 0, false, &id, &ext, &rtr, &fmi, &msg.len, msg.data);
+	msg.id = id;
 
 	msg.type = 0;
 	if (rtr)
