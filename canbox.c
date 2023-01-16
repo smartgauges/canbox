@@ -565,6 +565,9 @@ static void canbox_raise_cmd_process(uint8_t ch)
 			rx_state = RX_WAIT_START;
 
 			{
+				uint8_t ack = 0xff;
+				hw_usart_write(hw_usart_get(), (uint8_t *)&ack, 1);
+
 				char buf[64];
 				uint8_t cmd = rx_buffer[1];
 				snprintf(buf, sizeof(buf), "\r\nnew cmd %" PRIx8 "\r\n", cmd);
