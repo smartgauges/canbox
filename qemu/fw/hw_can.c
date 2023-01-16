@@ -73,6 +73,18 @@ uint8_t hw_can_setup(struct can_t * can, e_speed_t speed)
 	can->msgs[can->msgs_size].num = 1;
 	can->msgs_size++;
 
+	//fl2 2007
+	msg_can_t msg_fl2_6c = { .id = 0x6c, .num = 1, .type = 0, .len = 8, .data = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1 } };
+	can->msgs[can->msgs_size] = msg_fl2_6c;
+	can->msgs[can->msgs_size].num = 1;
+	can->msgs_size++;
+
+	//fl2 2007
+	msg_can_t msg_fl2_188 = { .id = 0x188, .num = 1, .type = 0, .len = 8, .data = { 0x70, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1f } };
+	can->msgs[can->msgs_size] = msg_fl2_188;
+	can->msgs[can->msgs_size].num = 1;
+	can->msgs_size++;
+
 	return 0;
 }
 

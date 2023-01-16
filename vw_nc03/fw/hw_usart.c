@@ -20,7 +20,7 @@ struct usart_t
 	uint32_t tx_cnt;
 };
 
-static struct usart_t usart0 = 
+static struct usart_t usart0 =
 {
 	.baddr = UART0,
 	.clk = UART0_MODULE,
