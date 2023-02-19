@@ -226,7 +226,17 @@ void GPCDEF_IRQHandler(void)
 
 void hw_can_snd_msg(struct can_t * can, struct msg_can_t * msg)
 {
-	(void)can;
-	(void)msg;
+	STR_CANMSG_T sMsg;
+
+	sMsg.Id = msg->id;
+	sMsg.DLC = msg->len;
+	for (uint8_t i = 0; i < 8; i++)
+		sMsg.Data[i] = msg->data[i];
+
+	sMsg.IdType = CAN_STD_ID;
+	//if (msg->type & e_can_ext)
+	//	sMsg.IdType = CAN_EXT_ID;
+
+	CAN_Transmit(can->baddr, MSG(10), &sMsg);
 }
 
