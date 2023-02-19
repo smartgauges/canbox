@@ -296,6 +296,9 @@ void print_debug(void)
 		case e_car_q3_2015:
 			scar = "Audi Q3 2015";
 			break;
+		case e_car_toyota_premio_26x:
+			scar = "TOYOTA PREMIO 26x";
+			break;
 		default:
 			break;
 	}

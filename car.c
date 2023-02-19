@@ -19,9 +19,11 @@ typedef struct car_state_t
 	uint8_t engine;
 	uint32_t taho;
 	uint32_t speed;
+	//in percentages 0% : 100%
 	uint8_t illum;
 	uint8_t selector;
 	struct radar_t radar;
+	//in percentages -100% : 100%
 	int8_t wheel;
 
 	uint8_t fl_door;
@@ -1402,6 +1404,95 @@ static struct msg_desc_t q3_2015_ms[] =
 	{ 0x3E3,  500, 0, 0, q3_2015_ms_3E3_handler }, // Seat heating
 };
 
+static void toyota_premio_26x_ms_wheel_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+		carstate.wheel = 0;
+		return;
+	}
+
+	int16_t angle = (int16_t)(((uint16_t)(msg[0] & 0x0F)) << 8 | msg[1]);
+	angle = (angle < 2048) ? angle : (angle - 4096);
+
+	carstate.wheel = scale(angle, -380, 380, -100, 100);
+}
+
+static void toyota_premio_26x_ms_speed_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+		carstate.speed = 0;
+		return;
+	}
+	carstate.speed = (((uint16_t)msg[5]) << 8 | msg[6]);
+}
+
+static void toyota_premio_26x_ms_ign_brake_doors_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+		carstate.acc = STATE_UNDEF;
+		carstate.ign = STATE_UNDEF;
+		carstate.park_break = STATE_UNDEF;
+		carstate.fl_door = STATE_UNDEF;
+		carstate.fr_door = STATE_UNDEF;
+		carstate.rl_door = STATE_UNDEF;
+		carstate.rr_door = STATE_UNDEF;
+		carstate.tailgate = STATE_UNDEF;
+		return;
+	}
+	carstate.acc        = (msg[4] & 0x10) ? 1:0;
+	carstate.ign 		= (msg[7] & 0x40) ? 1:0;
+	carstate.park_break = (msg[7] & 0x10) ? 1:0;
+	carstate.fl_door 	= (msg[5] & 0x20) ? 1:0;
+	carstate.fr_door 	= (msg[5] & 0x10) ? 1:0;
+	carstate.rl_door 	= (msg[5] & 0x08) ? 1:0;
+	carstate.rr_door 	= (msg[5] & 0x04) ? 1:0;
+	carstate.tailgate 	= (msg[5] & 0x01) ? 1:0;
+}
+
+static void toyota_premio_26x_ms_light_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+		carstate.illum = STATE_UNDEF;
+		carstate.near_lights = STATE_UNDEF;
+		carstate.park_lights = STATE_UNDEF;
+		return;
+	}
+	carstate.illum 			= (msg[3] & 0x10) ? 100:0;
+	carstate.near_lights 	= (msg[3] & 0x20) ? 1:0;
+	carstate.park_lights    = (msg[3] & 0x10) ? 1:0;
+}
+
+static void toyota_premio_26x_ms_drive_mode_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	if (is_timeout(desc)) {
+	 	carstate.selector = STATE_UNDEF;
+		return;
+	}
+
+	if((msg[4] & 0xF0) == 0x80)
+		carstate.selector = e_selector_p;
+	else if((msg[4] & 0xF0) == 0x40)
+		carstate.selector = e_selector_r;
+	else if((msg[4] & 0xF0) == 0x20)
+		carstate.selector = e_selector_n;
+	else if((msg[4] & 0xF0) == 0x00 && msg[5] == 0x40)
+		carstate.selector = e_selector_d;
+	else if((msg[4] & 0xF0) == 0x00 && (msg[5] == 0x00 || msg[5] == 0x01))
+		carstate.selector = e_selector_s;
+	else
+		carstate.selector = STATE_UNDEF;
+}
+
+
+struct msg_desc_t toyota_premio_26x_ms[] =
+{
+	{ 0x025,  	 80, 0, 0, toyota_premio_26x_ms_wheel_handler },
+	{ 0x0b4,	100, 0, 0, toyota_premio_26x_ms_speed_handler },
+	{ 0x620,    200, 0, 0, toyota_premio_26x_ms_ign_brake_doors_handler },
+	{ 0x622,   1000, 0, 0, toyota_premio_26x_ms_light_handler },
+	{ 0x3b4,   1000, 0, 0, toyota_premio_26x_ms_drive_mode_handler},
+};
+
 static void in_process(struct can_t * can, uint8_t ticks, struct msg_desc_t * msg_desc, uint8_t desc_num)
 {
 	uint8_t msgs_num = hw_can_get_msg_nums(can);
@@ -1460,6 +1551,8 @@ void car_init(enum e_car_t car, struct key_cb_t * cb)
 	e_speed_t speed = e_speed_125;
 	if ((car == e_car_skoda_fabia) || (car == e_car_q3_2015))
 		speed = e_speed_100;
+	else if(car == e_car_toyota_premio_26x)
+		speed = e_speed_500;
 	hw_can_set_speed(hw_can_get_mscan(), speed);
 }
 
@@ -1488,6 +1581,9 @@ void car_process(uint8_t ticks)
 			break;
 		case e_car_q3_2015:
 			in_process(can, ticks, q3_2015_ms, sizeof(q3_2015_ms)/sizeof(q3_2015_ms[0]));
+			break;
+		case e_car_toyota_premio_26x:
+			in_process(can, ticks, toyota_premio_26x_ms, sizeof(toyota_premio_26x_ms)/sizeof(toyota_premio_26x_ms[0]));
 			break;
 		default:
 			break;

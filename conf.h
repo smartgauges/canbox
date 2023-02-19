@@ -13,6 +13,7 @@ enum e_car_t
 	e_car_xc90_2007my,
 	e_car_skoda_fabia,
 	e_car_q3_2015,
+	e_car_toyota_premio_26x,
 	e_car_nums,
 };
 
