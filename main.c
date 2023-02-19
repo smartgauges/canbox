@@ -220,7 +220,7 @@ void print_sniffer(void)
 
 	clr_rscreen();
 
-	snprintf(buf, sizeof(buf), "Sniffer\r\n");
+	snprintf(buf, sizeof(buf), "Sniffer window\r\n");
 	hw_usart_write(hw_usart_get(), (uint8_t *)buf, strlen(buf));
 
 	print_line();
@@ -324,7 +324,7 @@ void print_debug(void)
 			break;
 	}
 
-	snprintf(buf, sizeof(buf), "Main\r\n");
+	snprintf(buf, sizeof(buf), "Main window\r\n");
 	hw_usart_write(hw_usart_get(), (uint8_t *)buf, strlen(buf));
 
 	print_line();
