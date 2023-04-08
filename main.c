@@ -105,11 +105,7 @@ static void debug_ch_process(uint8_t ch)
 	}
 	else if (ch == 'c') {
 
-		int car = car_get_car();
-		car++;
-		if (car >= e_car_nums)
-			car = 0;
-
+		enum e_car_t car = car_get_next_car();
 		conf_set_car(car);
 		car_init(conf_get_car(), &key_cb);
 		hw_can_clr(hw_can_get_mscan());
@@ -281,6 +277,9 @@ void print_debug(void)
 	const char * scar = "";
 	enum e_car_t car = car_get_car();
 	switch (car) {
+		case e_car_anymsg:
+			scar = "Any Msg";
+			break;
 		case e_car_lr2_2007my:
 			scar = "LR2 2007MY";
 			break;

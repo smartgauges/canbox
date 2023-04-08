@@ -8,7 +8,8 @@ extern "C"
 
 enum e_car_t
 {
-	e_car_lr2_2007my = 0,
+	e_car_anymsg = 0,
+	e_car_lr2_2007my,
 	e_car_lr2_2013my,
 	e_car_xc90_2007my,
 	e_car_skoda_fabia,
