@@ -1,5 +1,15 @@
 # canbox
-Firmware for canbus boxes
+Firmware for some canbus boxes which are available on aliexpress.
+
+A canbus box is a device that allows you to connect your Android device to a CAN bus
+
+General canbus box features:
+- turns on power for android when the ignition is turned on
+- turns on the power for the rear view camera
+- toggle backlight for android
+
+![canbus box](canbus.png)
+
 
 [More info](https://www.drive2.ru/b/599820152787190466/)
 
