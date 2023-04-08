@@ -7,6 +7,7 @@ General canbus box features:
 - turns on power for android when the ignition is turned on
 - turns on the power for the rear view camera
 - toggle backlight for android
+- displaying the state of the car on the android screen(open doors, parking sensors, etc.)
 
 ![canbus box](canbus.png)
 
