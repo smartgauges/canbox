@@ -88,6 +88,16 @@ void canbox_raise_vw_radar_process(uint8_t fmax[4], uint8_t rmax[4])
 		}
 	}
 
+	if (e_cb_raise_vw_pq == conf_get_canbox())
+	{
+		uint8_t reverse_state = (car_get_selector() == e_selector_r) ? 1 : 0;
+		uint8_t park_break  = car_get_park_break();
+		uint8_t near_lights = car_get_near_lights();
+		uint8_t tmp = reverse_state | (park_break << 1) | (near_lights << 2);
+
+		snd_canbox_msg(0x24, &tmp, sizeof(tmp));
+	}
+
 	if (!park_is_on)
 		return;
 
@@ -136,7 +146,7 @@ void canbox_raise_vw_door_process(void)
 
 	uint8_t state = 0;
 
-	if ((conf_get_car() == e_car_skoda_fabia) || (conf_get_car() == e_car_q3_2015)) {
+	if ((conf_get_car() == e_car_skoda_fabia) || (conf_get_car() == e_car_q3_2015) || (conf_get_car() == e_car_toyota_premio_26x)) {
 
 		if (ds_belt)
 			state |= 0x80;
