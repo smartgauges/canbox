@@ -1,0 +1,146 @@
+diff --git a/src/flash/nor/numicro.c b/src/flash/nor/numicro.c
+index 3d8cebc2..e7947b21 100644
+--- a/src/flash/nor/numicro.c
++++ b/src/flash/nor/numicro.c
+@@ -1255,7 +1255,7 @@ static int numicro_init_isp(struct target *target)
+ 		}
+ 
+ 		retval = target_write_buffer(target, init_algorithm->address,
+-			sizeof(numicro_NUC505_flash_algorithm_code), numicro_NUC505_flash_algorithm_code);
++			sizeof(numicro_NUC505_flash_algorithm_code), (uint8_t *)numicro_NUC505_flash_algorithm_code);
+ 		if (retval != ERROR_OK)
+ 			return retval;
+ 
+@@ -1332,7 +1332,7 @@ static int numicro_init_isp(struct target *target)
+ 	return ERROR_OK;
+ }
+ 
+-extern int nulink_usb_assert_reset();
++extern int nulink_usb_assert_reset(void);
+ /* Program LongWord Block Write */
+ static int numicro_writeblock(struct flash_bank *bank, const uint8_t *buffer,
+ 		uint32_t offset, uint32_t count)
+@@ -1340,7 +1340,7 @@ static int numicro_writeblock(struct flash_bank *bank, const uint8_t *buffer,
+ 	struct target *target = bank->target;
+ 	uint32_t buffer_size = 1024; /* Default minimum value */
+ 	uint32_t totalCount = count;
+-	uint32_t thisrun_count;
++	uint32_t thisrun_count = 0;
+ 	struct working_area *write_algorithm;
+ 	struct working_area *source;
+ 	struct working_area *source2;
+@@ -1350,7 +1350,7 @@ static int numicro_writeblock(struct flash_bank *bank, const uint8_t *buffer,
+ 	struct armv7m_algorithm armv7m_info;
+ 	uint32_t algorithm_programPage_entry_offset = 0;
+ 	uint32_t algorithm_lr = 0;
+-	uint32_t status;
++	//uint32_t status;
+ 	int retval = ERROR_OK;
+ 
+ 	/* Params:
+@@ -1411,7 +1411,7 @@ static int numicro_writeblock(struct flash_bank *bank, const uint8_t *buffer,
+ 			}
+ 
+ 			retval = target_write_buffer(target, write_algorithm->address,
+-				sizeof(numicro_M480_flash_algorithm_code), numicro_M480_flash_algorithm_code);
++				sizeof(numicro_M480_flash_algorithm_code), (uint8_t *)numicro_M480_flash_algorithm_code);
+ 			if (retval != ERROR_OK)
+ 				return retval;
+ 		}
+@@ -1428,7 +1428,7 @@ static int numicro_writeblock(struct flash_bank *bank, const uint8_t *buffer,
+ 			}
+ 
+ 			retval = target_write_buffer(target, write_algorithm->address,
+-				sizeof(numicro_NUC505_flash_algorithm_code), numicro_NUC505_flash_algorithm_code);
++				sizeof(numicro_NUC505_flash_algorithm_code), (uint8_t *)numicro_NUC505_flash_algorithm_code);
+ 			if (retval != ERROR_OK)
+ 				return retval;
+ 		}
+@@ -1917,7 +1917,7 @@ static int numicro_erase(struct flash_bank *bank, int first, int last)
+ 		}
+ 
+ 		retval = target_write_buffer(target, erase_algorithm->address,
+-			sizeof(numicro_NUC505_flash_algorithm_code), numicro_NUC505_flash_algorithm_code);
++			sizeof(numicro_NUC505_flash_algorithm_code), (uint8_t *)numicro_NUC505_flash_algorithm_code);
+ 		if (retval != ERROR_OK)
+ 			return retval;
+ 
+@@ -2505,7 +2505,7 @@ COMMAND_HANDLER(numicro_handle_chip_erase_command)
+ 	return ERROR_OK;
+ }
+ 
+-extern int nulink_usb_M2351_erase();
++extern int nulink_usb_M2351_erase(void);
+ COMMAND_HANDLER(numicro_handle_M2351_erase_command)
+ {
+ 	int retval = ERROR_OK;
+@@ -2653,4 +2653,4 @@ struct flash_driver numicro_flash = {
+ 	.auto_probe = numicro_auto_probe,
+ 	.erase_check = default_flash_blank_check,
+ 	.protect_check = numicro_protect_check,
+-};
+\ No newline at end of file
++};
+diff --git a/src/helper/command.c b/src/helper/command.c
+index 0893571e..12dc1ff2 100644
+--- a/src/helper/command.c
++++ b/src/helper/command.c
+@@ -816,9 +816,9 @@ static COMMAND_HELPER(command_help_show_list, struct command *head, unsigned n,
+ 	bool show_help, const char *cmd_match)
+ {
+ 	bool is_match = (strstr(cmd_match, "nuvoton") != NULL);
+-	const cmd_match_number = 19;
++	const unsigned int cmd_match_number = 19;
+ 	const char *cmd_match_names[cmd_match_number];
+-	int index = 0;
++	unsigned int index = 0;
+ 	
+ 	cmd_match_names[index++] = "reset";
+ 	cmd_match_names[index++] = "halt";
+diff --git a/src/jtag/adapter.c b/src/jtag/adapter.c
+index 6254857a..e99e2b73 100644
+--- a/src/jtag/adapter.c
++++ b/src/jtag/adapter.c
+@@ -393,9 +393,9 @@ next:
+ 		modes[5] = "";
+ 	}
+ 
+-	// command_print(CMD_CTX, "%s %s%s%s%s%s",
+-			// modes[0], modes[1],
+-			// modes[2], modes[3], modes[4], modes[5]);
++	 command_print(CMD_CTX, "%s %s%s%s%s%s",
++			 modes[0], modes[1],
++			 modes[2], modes[3], modes[4], modes[5]);
+ 
+ 	return ERROR_OK;
+ }
+diff --git a/src/jtag/drivers/nulink_usb.c b/src/jtag/drivers/nulink_usb.c
+index 5942fb3b..ac225c23 100644
+--- a/src/jtag/drivers/nulink_usb.c
++++ b/src/jtag/drivers/nulink_usb.c
+@@ -503,7 +503,7 @@ static int nulink_usb_reset(void *handle)
+ 	return res;
+ }
+ 
+-int nulink_usb_M2351_erase()
++int nulink_usb_M2351_erase(void)
+ {
+ 	int res = ERROR_FAIL;
+ 	struct nulink_usb_handle_s *h = m_nulink_usb_handle;
+@@ -564,7 +564,7 @@ int nulink_usb_M2351_erase()
+ 	return res;
+ }
+ 
+-int nulink_usb_assert_reset()
++int nulink_usb_assert_reset(void)
+ {
+ 	int res;
+ 	struct nulink_usb_handle_s *h = m_nulink_usb_handle;
+@@ -1343,6 +1343,7 @@ static int nulink_usb_close(void *handle)
+ 		h->cmdidx += 4;
+ 
+ 		res = m_nulink_usb_api.nulink_usb_xfer(handle, h->databuf, 4 * 1);		
++		res = res;
+ 	}
+ 
+ 	// if (h && h->fd)

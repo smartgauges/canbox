@@ -1,0 +1,27 @@
+diff -Nru qemu-7.2.0/hw/char/stm32f2xx_usart.c qemu-7.2.0-fix/hw/char/stm32f2xx_usart.c
+--- qemu-7.2.0/hw/char/stm32f2xx_usart.c	2022-12-14 17:28:45.000000000 +0100
++++ qemu-7.2.0-fix/hw/char/stm32f2xx_usart.c	2023-07-22 23:07:02.011798667 +0200
+@@ -172,6 +172,12 @@
+                 s->usart_sr & USART_SR_RXNE) {
+                 qemu_set_irq(s->irq, 1);
+             }
++            if (s->usart_cr1 & USART_CR1_TXEIE &&
++                s->usart_sr & USART_SR_TXE) {
++                qemu_set_irq(s->irq, 1);
++            }
++	    else
++                qemu_set_irq(s->irq, 0);
+         return;
+     case USART_CR2:
+         s->usart_cr2 = value;
+diff -Nru qemu-7.2.0/include/hw/char/stm32f2xx_usart.h qemu-7.2.0-fix/include/hw/char/stm32f2xx_usart.h
+--- qemu-7.2.0/include/hw/char/stm32f2xx_usart.h	2022-12-14 17:28:44.000000000 +0100
++++ qemu-7.2.0-fix/include/hw/char/stm32f2xx_usart.h	2023-01-07 18:32:29.895377221 +0100
+@@ -52,6 +52,7 @@
+ #define USART_CR1_RXNEIE  (1 << 5)
+ #define USART_CR1_TE  (1 << 3)
+ #define USART_CR1_RE  (1 << 2)
++#define USART_CR1_TXEIE  (1 << 7)
+ 
+ #define TYPE_STM32F2XX_USART "stm32f2xx-usart"
+ OBJECT_DECLARE_SIMPLE_TYPE(STM32F2XXUsartState, STM32F2XX_USART)
