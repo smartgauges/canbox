@@ -1,6 +1,35 @@
 # CANBUS Box Firmware - Reverse Engineered and Enhanced
 
-This project provides reverse-engineered and enhanced firmware for STM32F1 and Nuvoton NUC131-based CANBUS adapters (often called "CANBUS boxes" or "decoders"), commonly used to interface between a vehicle's CAN bus and an Android head unit.  These adapters are readily available on platforms like AliExpress. This project aims to deliver open-source, configurable, and feature-rich firmware, going beyond the often-limited capabilities of the original firmware.
+**This project is a significantly reworked and expanded version of the [canbox](https://github.com/smartgauges/canbox) project by smartgauges, providing reverse-engineered and enhanced firmware for STM32F1 and Nuvoton NUC131-based CANBUS adapters.**  These adapters, often found on AliExpress and similar platforms, are designed to interface between a vehicle's CAN bus and an Android head unit. This project aims to deliver open-source, configurable, and feature-rich firmware, going beyond the often-limited capabilities of the original firmware.
+
+**AI Assistance Disclaimer:**  This project, including the code, documentation (like this README), and overall structure, has been heavily developed and enhanced with the assistance of an AI language model. Specifically, **Google AI's Gemini Pro** was used extensively for:
+
+*   Code generation and modification
+*   Documentation writing and organization
+*   Content enhancement based on original sources (including forum comments)
+*   Creation of build and debugging configurations
+*   Translation and summarization of the original Russian documentation.
+
+**Project Goal and Roadmap:**
+
+The primary goal is to create open-source, customizable firmware for STM32F1 and Nuvoton NUC131-based CANBUS adapters. This enables users to extract more data from their vehicle's CAN bus and seamlessly integrate it with Android head units.  A key part of making this project easier to develop and extend is the inclusion of robust emulation and debugging environments.
+
+**Current Status:**
+
+*   The original project provides a functional base for STM32F1 (Volvo OD2 adapter) and Nuvoton NUC131 (VW NC03, VW_NCD01 adapters).
+*   QEMU emulation is already available and working for the *STM32F1* version.
+*   Extensive documentation and build/debug configurations (for VS Code and command-line tools) have been added.
+
+**Future Plans (Roadmap):**
+
+1.  **Enhanced QEMU Environment:** Expand the existing QEMU emulation environment to include simulated CAN bus traffic, mimicking both the *vehicle's* CAN bus and the *Android head unit's* serial communication. This will enable a comprehensive, hardware-free development and testing workflow.
+2. **Nuvoton NUC131 QEMU support**: Add QEMU support, which will require creating QEMU device for Nuvoton NUC131.
+3.  **Modular CAN Protocol Emulation:** Further refine the `canbox.c` module to make it easier to add and switch between different emulated head unit protocols.
+4.  **Expanded Vehicle Support:**  Encourage community contributions to add support for more car models by providing clear guidelines and templates in the `cars/` directory.
+5.  **Improved Configuration:**  Potentially develop a more user-friendly configuration method (e.g., a simple web interface or configuration file) instead of relying solely on the serial command interface.
+6.  **Head Unit Communication Protocol Reverse Engineering:** Continue to improve the understanding and implementation of various head unit communication protocols (Raise, HiWorld, etc.) by analyzing their behavior and referring to available open-source projects.
+7.	**Support for more MCU Families:** Add support for more MCU families
+8. **Support for more CAN Box protocols:** Add support for even more headunit communication protocols.
 
 **Key Features and Project Goals:**
 
