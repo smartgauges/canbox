@@ -4,12 +4,12 @@
 #include "hw_can.h"
 #include "car.h"
 
-#define USE_LR2_2007MY
-#define USE_LR2_2013MY
-#define USE_XC90_2007MY
-#define USE_SKODA_FABIA
-#define USE_Q3_2015
-#define USE_TOYOTA_PREMIO_26X
+// #define USE_LR2_2007MY
+// #define USE_LR2_2013MY
+// #define USE_XC90_2007MY
+// #define USE_SKODA_FABIA
+// #define USE_Q3_2015
+// #define USE_TOYOTA_PREMIO_26X
 
 static float scale(float value, float in_min, float in_max, float out_min, float out_max)
 {
@@ -183,7 +183,25 @@ uint8_t is_timeout(struct msg_desc_t * desc)
 	return 0;
 }
 
-#include "cars/anymsg.c"
+static void anymsg_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+	(void)msg;
+
+	if (is_timeout(desc)) {
+
+		carstate.acc = 0;
+		carstate.ign = 0;
+		return;
+	}
+
+	carstate.acc = 1;
+	carstate.ign = 1;
+}
+
+struct msg_desc_t anymsg_desc[] =
+{
+	{ 0x0, 100, 0, 0, anymsg_handler },
+};
 
 #ifdef USE_LR2_2007MY
 #include "cars/lr2_2007my.c"
