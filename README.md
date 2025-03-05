@@ -149,7 +149,7 @@ Clone the firmware repository from GitHub:
 
 ```bash
 git clone https://github.com/smartgauges/canbox.git
-cd canbox-platformio
+cd canbox
 ```
 
 ## 3. <a name="uart-debugging"></a>UART Debugging and Configuration
@@ -380,7 +380,7 @@ This project is designed to be built and managed using PlatformIO, a cross-platf
 
 The `platformio.ini` file in the project root configures the build process for different targets.
 
-1.  **Open the Project:** In VS Code, open the `canbox-platformio` folder (the one containing `platformio.ini`). PlatformIO should automatically detect the project.
+1.  **Open the Project:** In VS Code, open the `canbox` folder (the one containing `platformio.ini`). PlatformIO should automatically detect the project.
 2.  **Build:**
     *   Click the "PlatformIO" icon in the activity bar (the alien head).
     *   In the "Project Tasks" section, expand the environment you want to build (e.g., `env:genericSTM32F103C8`, `env:qemu`).
