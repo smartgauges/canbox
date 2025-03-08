@@ -1,30 +1,53 @@
 // CAN COMFORT
-static void peugeot_407_ms_2c3_handler(const uint8_t * msg, struct msg_desc_t * desc)
+
+static void peugeot_407_ms_B6_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
-	if (is_timeout(desc)) {
+    if (is_timeout(desc)) {
+        carstate.acc = STATE_UNDEF;
+        carstate.ign = STATE_UNDEF;
+        return;
+    }
 
-		carstate.acc = STATE_UNDEF;
-		carstate.ign = STATE_UNDEF;
-		return;
-	}
+    // Byte 0 of message 0xB6 contains ignition and accessory status.
+    // We'll use bitmasks to extract the relevant bits.  These bit positions
+    // *should* be correct based on available documentation, but you *MUST*
+    // verify this with your specific vehicle and log data.  It's common for
+    // these to vary slightly between trim levels and model years.
 
-	/*
-	   0001 0000 - 0x2C3 : 10 00 00 00 00 00 00 00 - no Key
-	   0000 0001 - 0x2C3 : 01 FF FF FF FF FF FF FF - Key inserted, IGN off
-	   0000 0111 - 0x2C3 : 07 FF FF FF FF FF FF FF - Ign on
-	   0111 1011 - 0x2C3 : 0B FF FF FF FF FF FF FF - Starter
-	*/
+    // Bit definitions (HYPOTHETICAL - Verify with your logs!):
+    const uint8_t IGN_BIT_ACC = 0x04; // Bit 2: Accessory
+    const uint8_t IGN_BIT_ON  = 0x06; // Both bits 2 and 1 set.
+    const uint8_t IGN_BIT_START=0x02; // Bit 1
 
-	if (msg[0] & 0x01)
-		carstate.acc = 1;
-	else
-		carstate.acc = 0;
+    // Extract the relevant byte.
+    uint8_t ignition_byte = msg[0];
 
-	if ((msg[0] & 0x02) == 0x02)
-		carstate.ign = 1;
-	else
-		carstate.ign = 0;
+    // Determine ACC state
+    if (ignition_byte & IGN_BIT_ACC) {
+        carstate.acc = STATE_ON;
+    } else {
+        carstate.acc = STATE_OFF; // Assume OFF if the bit isn't set.
+    }
+
+    // Determine IGN state
+    if ((ignition_byte & IGN_BIT_ON)==6) {
+        carstate.ign = STATE_ON; //Considered running
+    }
+   
+    else if (ignition_byte & IGN_BIT_ACC) //if its not ON check if it is only in ACC
+    {
+          if((ignition_byte & IGN_BIT_START)==2)
+            carstate.ign=STATE_START;// Engine cranking.
+          else
+            carstate.ign = STATE_ACC; // Key in ACC position, but engine NOT running
+    }
+    else
+    {
+         carstate.ign = STATE_OFF;
+    }
+
 }
+
 
 static void peugeot_407_ms_65F_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
@@ -518,7 +541,7 @@ static void peugeot_407_ms_6DA_handler(const uint8_t * msg, struct msg_desc_t * 
 
 static struct msg_desc_t peugeot_407_ms[] =
 {
-	{ 0x2c3,  100, 0, 0, peugeot_407_ms_2c3_handler }, // ACC
+	{ 0xb6,  100, 0, 0, peugeot_407_ms_B6_handler }, // ACC
 	{ 0x65F,  200, 0, 0, peugeot_407_ms_65F_handler }, // VIN
 	{ 0x65D, 1000, 0, 0, peugeot_407_ms_65D_handler }, // Odometer
 	{ 0x571,  600, 0, 0, peugeot_407_ms_571_handler }, // Voltage
