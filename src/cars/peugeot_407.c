@@ -212,18 +212,34 @@ static void peugeot_407_ms_0E1_handler(const uint8_t * msg, struct msg_desc_t * 
 
 static void peugeot_407_ms_161_handler(const uint8_t *msg, struct msg_desc_t *desc) {
     if (is_timeout(desc)) {
-        carstate.oil_temp = 0; // Or a suitable "invalid" value
+        carstate.oil_temp = 0;   // Or a suitable "invalid" value, maybe -40 to match the offset.
         carstate.fuel_lvl = 0; // Or a suitable "invalid" value.
         return;
     }
 
-    // Oil Temperature:  Byte 2, Offset: +40
+    // Oil Temperature: Byte 2, Offset: +40.  Matches PSAVanCanBridge.
     carstate.oil_temp = (int16_t)msg[2] + 40;
 
-    // Fuel Level: Byte 3.  We don't know the scaling yet, so just store the raw value.
+    // Fuel Level: Byte 3.  PSAVanCanBridge has a complex calculation involving
+    // several bits and a "tank full" value. We'll start by just storing the
+    // raw value and refine it later.
     carstate.fuel_lvl = msg[3];
 
-    // Bytes 0, 1, and 4-7 are unknown (0x00 0x00 ... 0xff 0xff 0xff 0xff in the example).
+    // The PSAVanCanBridge code suggests these calculations:
+    //
+     uint8_t fuel_lvl = (msg[3] >> 2) & 0x3F; // Get the 6 relevant bits.
+     uint8_t max_fuel    = (msg[3] >> 1) & 0x7F;
+     uint8_t fuel_percent = 0; // Or some other default/error value.
+     if (max_fuel != 0) { // Avoid division by zero
+         fuel_percent =  (uint8_t)(((uint32_t)fuel_lvl * 100) / max_fuel);
+     }
+    //
+    // We will implement this LATER, once we've confirmed we can *receive* the
+    // message at all.  First, store the raw value:
+    carstate.fuel_lvl = msg[3];  // Store the raw byte for now.
+
+    // The other bytes are, as of now, still unknown, but this structure is a *much*
+    // better starting point.
 }
 
 static struct msg_desc_t peugeot_407_ms[] =
