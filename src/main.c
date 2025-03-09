@@ -238,7 +238,7 @@ void print_sniffer(void)
 		if (!hw_can_get_msg(hw_can_get_mscan(), &msg, i))
 			break;
 
-		snprintf(buf, sizeof(buf), "0x%X : %02X %02X %02X %02X %02X %02X %02X %02X \r\n",
+		snprintf(buf, sizeof(buf), "0x%X : %02x %02x %02x %02x %02x %02x %02x %02x \r\n",
 			(int)msg.id, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
 		hw_usart_write(hw_usart_get(), (uint8_t *)buf, strlen(buf));
 	}
@@ -451,6 +451,10 @@ static void gpio_process(void)
 		hw_gpio_rear_off();
 }
 
+uint8_t fmax_global[4] = { 10, 10, 10, 10 }; // Example global fmax/rmax, adjust as needed
+uint8_t rmax_global[4] = { 10, 10, 10, 10 };
+
+
 int main(void)
 {
 	hw_setup();
@@ -487,7 +491,7 @@ int main(void)
 			timer.flag_100ms = 0;
 
 			if (!debug_on)
-				canbox_park_process();
+				canbox_park_process(fmax_global, rmax_global); // Call park process with fmax/rmax
 		}
 
 		if (timer.flag_250ms) {
@@ -543,4 +547,3 @@ int main(void)
 		}
 	}
 }
-

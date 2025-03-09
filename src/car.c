@@ -3,13 +3,8 @@
 #include "hw.h"
 #include "hw_can.h"
 #include "car.h"
+#include "protocol/interface.h" // Include the protocol interface header
 
-#define USE_LR2_2007MY
-#define USE_LR2_2013MY
-#define USE_XC90_2007MY
-#define USE_SKODA_FABIA
-#define USE_Q3_2015
-#define USE_TOYOTA_PREMIO_26X
 
 static float scale(float value, float in_min, float in_max, float out_min, float out_max)
 {
@@ -712,4 +707,3 @@ uint8_t car_get_air_r_seat(void)
 
 	return car_air_state.r_seat;
 }
-
