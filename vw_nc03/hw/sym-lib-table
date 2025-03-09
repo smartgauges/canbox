@@ -1,3 +1,0 @@
-(sym_lib_table
-  (lib (name vw_nc03)(type Legacy)(uri ${KIPRJMOD}/vw_nc03.lib)(options "")(descr ""))
-)
