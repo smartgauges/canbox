@@ -307,7 +307,7 @@ This will compile the `qemu.bin` file and run QEMU to simulate the STM32F1 micro
     Or, if you want to run it manually:
 
     ```bash
-    qemu-system-arm -M stm32-p103 -kernel firmware.elf -nographic -S -s
+    qemu-system-arm -M stm32vldiscovery -kernel firmware.elf -nographic -S -s
     ```
 
 2.  Start a GDB session in *another* terminal:
@@ -443,13 +443,13 @@ For more advanced QEMU usage or troubleshooting, you can run QEMU directly from 
 2.  **Run QEMU:**
 
     ```bash
-    qemu-system-arm -M stm32-p103 -kernel .pio/build/qemu/firmware.elf -serial stdio -display none
+    qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf -serial stdio -display none
     ```
 
     This command:
 
     *   `qemu-system-arm`: Starts the ARM system emulator.
-    *   `-M stm32-p103`: Specifies the emulated machine (STM32-P103 board).
+    *   `-M stm32vldiscovery`: Specifies the emulated machine (stm32vldiscovery board).
     *   `-kernel .pio/build/qemu/firmware.elf`:  Loads the compiled ELF firmware.
     *   `-serial stdio`: Redirects the serial port (USART) to the standard input/output, allowing you to interact with the debug interface.
     *   `-display none`:  Runs QEMU without a graphical display (headless mode).
@@ -459,7 +459,7 @@ For more advanced QEMU usage or troubleshooting, you can run QEMU directly from 
     For debugging with GDB, add the `-S -s` options:
 
     ```bash
-    qemu-system-arm -M stm32-p103 -kernel .pio/build/qemu/firmware.elf -serial stdio -display none -S -s
+    qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf -serial stdio -display none -S -s
     ```
 
     *   `-S`:  Halts the CPU at startup.

@@ -121,15 +121,11 @@ The project uses Makefiles for building and flashing the firmware.
     1.  Start QEMU in debug mode (with `-S -s` options) in one terminal:
 
         ```bash
-        qemu-system-arm -M stm32-p103 -kernel firmware.elf -nographic -S -s
-        ```
-        or
-        ```
-        make run_qemu 
+        qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf
         ```
     2.  Start a GDB session in another terminal:
         ```bash
-        arm-none-eabi-gdb firmware.elf
+        arm-none-eabi-gdb .pio/build/qemu/firmware.elf
         ```
     3.  Connect GDB to QEMU:
         ```
@@ -357,6 +353,37 @@ The following tasks are defined:
 }
 
 ```
+
+### Viewing Raw Serial Output from QEMU
+To observe the raw, hexadecimal output from the QEMU's emulated serial
+port (useful for debugging the emulated head unit protocols), use the following
+command. This uses `xxd` to format
+the output:
+
+```
+qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf -serial stdio -display none | xxd -c 12
+```
+
+This command pipes the standard output of QEMU (which includes the serial data) to `xxd`. 
+
+The `-c 12` option tells `xxd` to format the output with `12 hex bytes` per line, which is a convenient width for viewing CAN messages.  
+
+You will see the raw bytes being sent by the canbox firmware, including both debug messages (if enabled) and the emulated protocol messages. Use this to verify correct message formatting and data encoding before connecting to a physical CAN bus.
+
+Sample output:
+
+```
+00000000: 5aa5 0712 0000 0000 0000 0018  Z...........
+0000000c: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000018: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000024: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000030: 5aa5 0712 0000 0000 0000 0018  Z...........
+0000003c: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000048: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000054: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000060: 5aa5 0712 0000 0000 0000 0018  Z...........
+```
+
 
 ### How to Use the VS Code Debugger
 
