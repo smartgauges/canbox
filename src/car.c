@@ -5,12 +5,6 @@
 #include "car.h"
 #include "protocol/interface.h" // Include the protocol interface header
 
-
-static float scale(float value, float in_min, float in_max, float out_min, float out_max)
-{
-	return (((value - in_min) * (out_max - out_min)) / (in_max - in_min)) + out_min;
-}
-
 #define STATE_UNDEF 0xff
 typedef struct car_state_t
 {
@@ -45,9 +39,11 @@ typedef struct car_state_t
 	uint32_t odometer;
 	uint32_t voltage;
 	uint8_t low_voltage;
-	uint32_t temp;
+	int16_t temp;      // Changed from uint32_t, since it can be negative
 	uint8_t fuel_lvl;
 	uint8_t low_fuel_lvl;
+    int16_t engine_temp;   // New Member
+	int16_t oil_temp;
 } car_state_t;
 
 static car_state_t carstate =
@@ -716,3 +712,8 @@ uint8_t car_get_air_r_seat(void)
 
 	return car_air_state.r_seat;
 }
+
+int16_t car_get_engine_temp(void) {
+    return carstate.engine_temp;
+}
+
