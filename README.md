@@ -7,7 +7,7 @@ This project is a significantly reworked and expanded version of the [canbox](ht
 *   Code generation and modification
 *   Documentation writing and organization
 *   Content enhancement based on original sources (including forum comments)
-*   Creation of build and debugging configurations
+*   Creation of build, PlatformIO and debugging configurations
 *   Translation and summarization of the original Russian documentation.
 
 **Project Goal and Roadmap:**
@@ -19,17 +19,19 @@ The primary goal is to create open-source, customizable firmware for STM32F1 and
 *   The original project provides a functional base for STM32F1 (Volvo OD2 adapter) and Nuvoton NUC131 (VW NC03, VW_NCD01 adapters).
 *   QEMU emulation is already available and working for the *STM32F1* version.
 *   Extensive documentation and build/debug configurations (for VS Code and command-line tools) have been added.
+*   PlatformIO and VS Code integration is implemented for streamlined build and debug process.
 
 **Future Plans (Roadmap):**
 
 1.  **Enhanced QEMU Environment:** Expand the existing QEMU emulation environment to include simulated CAN bus traffic, mimicking both the *vehicle's* CAN bus and the *Android head unit's* serial communication. This will enable a comprehensive, hardware-free development and testing workflow.
-2. **Nuvoton NUC131 QEMU support**: Add QEMU support, which will require creating QEMU device for Nuvoton NUC131.
+2.  **Nuvoton NUC131 QEMU support**: Add QEMU support, which will require creating QEMU device for Nuvoton NUC131.
 3.  **Modular CAN Protocol Emulation:** Further refine the `canbox.c` module to make it easier to add and switch between different emulated head unit protocols.
 4.  **Expanded Vehicle Support:**  Encourage community contributions to add support for more car models by providing clear guidelines and templates in the `cars/` directory.
 5.  **Improved Configuration:**  Potentially develop a more user-friendly configuration method (e.g., a simple web interface or configuration file) instead of relying solely on the serial command interface.
 6.  **Head Unit Communication Protocol Reverse Engineering:** Continue to improve the understanding and implementation of various head unit communication protocols (Raise, HiWorld, etc.) by analyzing their behavior and referring to available open-source projects.
-7.	**Support for more MCU Families:** Add support for more MCU families
-8. **Support for more CAN Box protocols:** Add support for even more headunit communication protocols.
+7.  **PlatformIO and VS Code Support:** Fully integrate PlatformIO and VS Code for build and debugging workflows, providing pre-configured environments and tasks.
+8.	**Support for more MCU Families:** Add support for more MCU families.
+9.  **Support for more CAN Box protocols:** Add support for even more headunit communication protocols.
 
 **Key Features and Project Goals:**
 
@@ -40,6 +42,7 @@ The primary goal is to create open-source, customizable firmware for STM32F1 and
     *   **VW_NCD01 Adapter:**  Newer version of the VW_NC03, also Nuvoton-based.
     *   **QEMU Emulation:**  Debug and run the STM32F1 version in QEMU, facilitating development without hardware.
 *   **MCU Families:**
+    *   Support for PlatformIO build system for both STM32F1 and Nuvoton NUC131 targets.
     *   STMicroelectronics STM32F1 series (STM32F103x8)
     *   Nuvoton NUC131 series
 *   **Emulated CANBUS Protocols (for Head Unit Communication):**
@@ -49,6 +52,7 @@ The primary goal is to create open-source, customizable firmware for STM32F1 and
     *   HiWorld VW (MQB)
     *   Mercedes-Benz UDS-based CANBUS (mentioned in the original README)
 *   **Confirmed Car Model Support:**
+    *   Peugeot 407 (2008MY)
     *   Land Rover Freelander 2 (2007MY, 2013MY)
     *   Volvo XC90 (2007MY)
     *   Volkswagen Tiguan (implied by VW_NC03 adapter)
@@ -63,6 +67,7 @@ The primary goal is to create open-source, customizable firmware for STM32F1 and
     *   **User Configuration:**  Serial interface (RX/TX) for configuration, debugging, and monitoring.
     *   **Reduced Sleep Mode Power Consumption:** Optimized power usage in sleep mode.
 *   **Comprehensive Documentation:**  Includes detailed guides on hardware/software setup, UART debugging, project architecture, and VS Code configuration.
+*   **PlatformIO and VS Code Integration:** Pre-configured `platformio.ini`, `.vscode/launch.json`, and `.vscode/tasks.json` files for building, debugging, and flashing within VS Code, and using PlatformIO CLI.
 *   **VS Code Integration:**  Pre-configured `launch.json` and `tasks.json` files for debugging with OpenOCD (STM32/Nuvoton) and QEMU (STM32).
 
 ## Table of Contents
@@ -82,6 +87,7 @@ The primary goal is to create open-source, customizable firmware for STM32F1 and
     *   [Building for Different Targets](#build-targets)
     *   [Flashing with OpenOCD](#flashing)
     *   [QEMU Emulation and Debugging](#qemu)
+    *   [Building and Flashing with PlatformIO](#build-platformio)
 5.  [Project Structure and Code Overview](#project-structure)
     *   [Main Components](#main-components)
     *   [Data Flow](#data-flow)
@@ -318,6 +324,19 @@ This will compile the `qemu.bin` file and run QEMU to simulate the STM32F1 micro
 
 4.  You can now set breakpoints, step through code, inspect variables, etc., within the GDB session.
 
+### 4.4. <a name="build-platformio"></a>Building and Flashing with PlatformIO
+
+**Building with PlatformIO**
+
+1.  **Install PlatformIO:** Follow the instructions in section [7.1. <a name="install-platformio"></a>Installing PlatformIO](#install-platformio).
+2.  **Build with PlatformIO:** Use the PlatformIO build tasks in VS Code or the `pio run -e <environment>` command in the terminal. See section [7.2. <a name="build-platformio"></a>Building with PlatformIO](#build-platformio) for details.
+
+**Flashing with PlatformIO**
+
+*   You may need a specific version of OpenOCD (potentially built from source) for the Nuvoton NUC131. See `doc/env_setup.md` and `doc/sources/DRIVE2.md` for details.
+*   You will likely need to create a `target/NUC131.cfg` file for OpenOCD.
+*   ST-Link connection: Connect to the internal CON2 connector on the VW NC03 board.  Use the schematic or a multimeter to determine the correct pinout (GND, PWR, SWDIO, SWCLK, RST).
+
 ## 5. <a name="project-structure"></a>Project Structure and Code Overview
 
 The firmware is designed to be modular, making it easier to add support for new vehicles and CANBUS protocols.  Here's a breakdown of the key components:
@@ -328,9 +347,9 @@ The firmware is designed to be modular, making it easier to add support for new 
 
 *   **`hw.c`, `hw.h`:**  Hardware Abstraction Layer (HAL).  Provides a consistent interface to the microcontroller's peripherals (GPIO, USART, CAN, timers, etc.), regardless of the specific MCU (STM32F1 or NUC131).  Platform-specific code is isolated here.
 
-*   **`hw_*.c`, `hw_*.h`:**  Individual HAL implementations for specific peripherals (e.g., `hw_can.c`, `hw_usart.c`, `hw_tick.c`, `hw_gpio.c`).
+*   **`hw_*.c`, `hw_*.h`:**  Individual HAL implementations for specific peripherals (e.g., `hw_can.c`, `hw_usart.c`, `hw_tick.c`, `hw_gpio.c`).  These provide the low-level drivers for interacting with the microcontroller hardware.
 
-*   **`canbox.c`, `canbox.h`:**  Implements communication with the Android head unit over the serial interface (RX/TX).  Handles the emulated CANBUS protocols (Raise, HiWorld, etc.), sending vehicle data and processing head unit commands.
+*   **`canbox.c`, `canbox.h`:**  Implements communication with the Android head unit over the serial interface (RX/TX).  Handles the selection of the active CANBUS protocol to emulate.  This module now delegates the protocol-specific message formatting and command handling to the files within the `protocol/` directory, promoting modularity and easier protocol addition.
 
 *   **`car.c`, `car.h`:**  Contains the *vehicle-specific* logic for decoding CAN bus messages.  This is the core component for adapting the firmware to different car models.  It provides a standardized interface for accessing vehicle data (e.g., `car_get_speed()`, `car_get_door_fl()`).
 
@@ -340,6 +359,12 @@ The firmware is designed to be modular, making it easier to add support for new 
 
 ### Subdirectories
 
+*   **`protocol/`:** This *new* directory contains the implementation of different head unit communication protocols. Each protocol (e.g., `raisepq`, `raisemqb`, `bmwnbevo`, `hiworldmqb`) has its own subdirectory with `.c` and `.h` files.  These files handle the protocol-specific details of formatting CAN messages for the head unit and processing commands received from the head unit.  This modular structure makes it easier to add new protocols and switch between them.
+    *   `interface.h`: Defines a common interface (`protocol_ops_t` structure) for all emulated CANBUS protocols, ensuring a consistent way to interact with different protocol implementations from `canbox.c`.
+    *   `raisepq/`: Contains the implementation for the Raise VW (PQ) protocol.
+    *   `raisemqb/`: Contains the implementation for the Raise VW (MQB) protocol.
+    *   `bmwnbevo/`: Contains the implementation for the Audi BMW (NBT Evo) protocol.
+    *   `hiworldmqb/`: Contains the implementation for the HiWorld VW (MQB) protocol.
 *   **`cars/`:**  *Crucially*, this directory contains vehicle-specific CAN message handling. Each car model has its own `.c` file (e.g., `lr2_2007my.c`, `xc90_2007my.c`). These files:
     *   Define `msg_desc_t` structures: These describe the CAN messages to be monitored (ID, period, handler function).
     *   Implement handler functions: These decode the data from received CAN messages and update the `carstate` structure.
