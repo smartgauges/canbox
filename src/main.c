@@ -286,6 +286,9 @@ void print_debug(void)
 		case e_car_lr2_2013my:
 			scar = "LR2 2013MY";
 			break;
+		case e_car_peugeot_407:
+			scar = "PEUGEOT 407 2008MY";
+			break;
 		case e_car_xc90_2007my:
 			scar = "XC90 2007MY";
 			break;

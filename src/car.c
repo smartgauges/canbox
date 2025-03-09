@@ -206,6 +206,10 @@ struct msg_desc_t anymsg_desc[] =
 #include "cars/lr2_2013my.c"
 #endif
 
+#ifdef USE_PEUGEOT_407
+#include "cars/peugeot_407.c"
+#endif
+
 #ifdef USE_XC90_2007MY
 #include "cars/xc90_2007my.c"
 #endif
@@ -340,6 +344,11 @@ void car_process(uint8_t ticks)
 		case e_car_lr2_2013my:
 #ifdef USE_LR2_2013MY
 			in_process(can, ticks, lr2_2013my_ms, sizeof(lr2_2013my_ms)/sizeof(lr2_2013my_ms[0]));
+#endif
+break;
+		case e_car_peugeot_407:
+#ifdef USE_PEUGEOT_407
+			in_process(can, ticks, peugeot_407_ms, sizeof(peugeot_407_ms)/sizeof(peugeot_407_ms[0]));
 #endif
 			break;
 		case e_car_xc90_2007my:
