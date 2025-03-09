@@ -1,0 +1,370 @@
+vehicle:
+  name: Peugeot 407
+  year: 2008
+  bus_speed: 500000  # Main CAN bus speed (kbps)
+
+messages:
+  - id: 0xB6
+    name: Engine_Status
+    signals:
+      - name: Engine_Coolant_Temp
+        start_bit: 40  # Byte 5, bits 7-0 (assuming big-endian)
+        length: 8       # 8 bits for temperature
+        # Placeholder values, need calibration:
+        factor: 0.75    # Example, adjust as needed
+        offset: -48    # Example, adjust as needed based on real data
+        unit: "°C"
+        type: unsigned
+      - name: Engine_State #Using this as general status for now.
+        start_bit: 0 # Byte 0, assuming first two bits.
+        length: 3    # I am assigning length 3 as a start point.
+        type: unsigned
+        states:
+          0: "OFF"
+          2: "ACC" # Accessory.
+          6: "ON"     # Ignition ON.
+          #Other values should be defined.
+
+  - id: 0x126
+    name: Steering_Wheel_Controls_Horn
+    signals:
+      - name: Horn
+        start_bit: 8  # Assuming bit 0 in byte 1 (D2), needs verification
+        length: 1       # Assuming it's a single bit (boolean)
+        type: unsigned
+        states:
+          0: "Off"
+          1: "On"
+      # Add other signals from this message later, based on observation and testing
+  - id: 0x128
+    name: Wipers_Lights_TurnSignals
+    signals:
+      - name: Wiper_State
+        start_bit: 0  # Example, needs verification from the log
+        length: 8
+        type: unsigned
+        # Define states based on observed values, e.g.,
+        # states:
+        #   0: "Off"
+        #   1: "Intermittent"
+        #   2: "Low"
+        #   3: "High"
+        #   ...
+      - name: Headlight_Status
+        start_bit: 8  # Example, needs verification
+        length: 8
+        type: unsigned
+      - name: Turn_Signal_Left
+        start_bit: 16 # Example
+        length: 1
+        type: unsigned
+        states:
+            0: "Off"
+            1: "On"
+      - name: Turn_Signal_Right
+        start_bit: 17 # Example
+        length: 1
+        type: unsigned
+        states:
+            0: "Off"
+            1: "On"
+
+  - id: 0x131
+    name: Doors_Fuel
+    signals:
+      - name: Fuel_Level
+        start_bit: 0  # Example, needs verification
+        length: 8
+        type: unsigned
+        # Define scaling and units after analyzing log data.
+      - name: Door_FL
+        start_bit: 8  # Example
+        length: 1
+        type: unsigned
+        states:
+            0: "Closed"
+            1: "Open"
+      - name: Door_FR
+        start_bit: 9 # Example
+        length: 1
+        type: unsigned
+        states:
+            0: "Closed"
+            1: "Open"
+      - name: Door_RL
+        start_bit: 10 # Example
+        length: 1
+        type: unsigned
+        states:
+            0: "Closed"
+            1: "Open"
+      - name: Door_RR
+        start_bit: 11 # Example
+        length: 1
+        type: unsigned
+        states:
+          0: "Closed"
+          1: "Open"
+
+  - id: 0x14C
+    name: Vehicle_Speed_Odometer
+    signals:
+      - name: Vehicle_Speed
+        start_bit: 0 # Example
+        length: 8
+        factor: 0.01 # Example value. Needs to be calibrated.
+        unit: "km/h"
+        type: unsigned
+      - name: Odometer
+        start_bit: 8  # Example
+        length: 24      # Example, could be 16 or 32 bits.
+        factor: 1      # Example
+        unit: "km"
+        type: unsigned
+
+  - id: 0x165
+      name: vehicle_status
+      signals:
+        - name: Unknown_Signal_1
+          start_bit: 0
+          length: 8
+          type: unsigned
+        - name: Unknown_Signal_2
+          start_bit: 8
+          length: 8
+          type: unsigned
+
+  - id: 0x168
+      name: Outside_Temperature_and_Battery
+      signals:
+        - name: Outside_Temperature
+          start_bit: 0
+          length: 8
+          factor: 0.1 # Example
+          offset: -40
+          unit: "C"
+          type: signed # Use signed for temperature.
+        - name: Battery_Voltage # Example
+          start_bit: 8
+          length: 8
+          factor: 0.1  # Example
+          unit: "V"
+          type: unsigned
+
+  - id: 0x1E1,
+    name: Engine_Data1 #Place holder name
+    signals:
+      - name: unknown1
+        start_bit: 0
+        length: 8
+        type: unsigned
+      - name: unknown2
+        start_bit: 8
+        length: 8
+        type: unsigned
+      - name: unknown3
+        start_bit: 16
+        length: 8
+        type: unsigned
+      - name: unknown4
+        start_bit: 24
+        length: 8
+        type: unsigned
+      - name: unknown5
+        start_bit: 32
+        length: 8
+        type: unsigned
+      - name: unknown6
+        start_bit: 40
+        length: 8
+        type: unsigned
+
+
+  - id: 0x1E5
+    name: Engine_Data2 #Placeholder name
+    signals:
+      - name: Unknown_EngineData_Byte1
+        start_bit: 0
+        length: 8
+        type: unsigned
+      - name: Unknown_EngineData_Byte2
+        start_bit: 8
+        length: 8
+        type: unsigned
+      - name: Unknown_EngineData_Byte3
+        start_bit: 16
+        length: 8
+        type: unsigned
+      - name: Unknown_EngineData_Byte4
+        start_bit: 24
+        length: 8
+        type: unsigned
+      - name: Unknown_EngineData_Byte5
+        start_bit: 32
+        length: 8
+        type: unsigned
+      - name: Unknown_EngineData_Byte6
+        start_bit: 40
+        length: 8
+        type: unsigned
+      - name: Unknown_EngineData_Byte7
+        start_bit: 48
+        length: 8
+        type: unsigned
+
+  - id: 0x28C
+    name: Vehicle_Speed_Odometer_Duplicated
+    signals:
+      - name: Vehicle_Speed_Duplicated
+        start_bit: 0
+        length: 8
+        factor: 0.01 # Example value. Needs to be calibrated.
+        unit: "km/h"
+        type: unsigned
+      - name: Odometer_Duplicated
+        start_bit: 8  # Example
+        length: 24      # Example, could be 16 or 32 bits.
+        factor: 1      # Example
+        unit: "km"
+        type: unsigned
+  - id: 0x2B6
+    name: Radio_Station_Name
+    signals:
+        - name: ASCII_Char_1
+          start_bit: 0
+          length: 8
+          type: ascii  # Use ASCII type for text
+        - name: ASCII_Char_2
+          start_bit: 8
+          length: 8
+          type: ascii
+        - name: ASCII_Char_3
+          start_bit: 16
+          length: 8
+          type: ascii
+        - name: ASCII_Char_4
+          start_bit: 24
+          length: 8
+          type: ascii
+        - name: ASCII_Char_5
+          start_bit: 32
+          length: 8
+          type: ascii
+        - name: ASCII_Char_6
+          start_bit: 40
+          length: 8
+          type: ascii
+        - name: ASCII_Char_7
+          start_bit: 48
+          length: 8
+          type: ascii
+        - name: ASCII_Char_8
+          start_bit: 56
+          length: 8
+          type: ascii
+
+  - id: 0x260
+    name: Climate_Control_Status_1
+    signals:
+      - name: Unknown_Climate_1
+        start_bit: 0
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_2
+        start_bit: 8
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_3
+        start_bit: 16
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_4
+        start_bit: 24
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_5
+        start_bit: 32
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_6
+        start_bit: 40
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_7
+        start_bit: 48
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_8
+        start_bit: 56
+        length: 8
+        type: unsigned
+  - id: 0x261
+    name: Climate_Control_Status_2
+    signals:
+      - name: Unknown_Climate_1
+        start_bit: 0
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_2
+        start_bit: 8
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_3
+        start_bit: 16
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_4
+        start_bit: 24
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_5
+        start_bit: 32
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_6
+        start_bit: 40
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_7
+        start_bit: 48
+        length: 8
+        type: unsigned
+      - name: Unknown_Climate_8
+        start_bit: 56
+        length: 8
+        type: unsigned
+  - id: 0x3B6
+    name: Head_Unit_String_1
+    signals:
+      - name: Text_1
+        start_bit: 0
+        length: 8
+        type: ascii
+      - name: Text_2
+        start_bit: 8
+        length: 8
+        type: ascii
+      - name: Text_3
+        start_bit: 16
+        length: 8
+        type: ascii
+      - name: Text_4
+        start_bit: 24
+        length: 8
+        type: ascii
+      - name: Text_5
+        start_bit: 32
+        length: 8
+        type: ascii
+      - name: Text_6
+        start_bit: 40
+        length: 8
+        type: ascii
+      - name: Text_7
+        start_bit: 48
+        length: 8
+        type: ascii
+      - name: Text_8
+        start_bit: 56
+        length: 8
+        type: ascii
