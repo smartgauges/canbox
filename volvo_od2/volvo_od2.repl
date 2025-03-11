@@ -1,0 +1,1 @@
+can1: CAN.STMCAN @ sysbus <0x40006400, +0x400>

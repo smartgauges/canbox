@@ -37,7 +37,7 @@ struct conf_t conf =
 	.header = HEADER_SIGN,
 
 	.idx = 0,
-	.car = e_car_anymsg,
+	.car = e_car_peugeot_407,
 	.illum = 50,
 	.rear_delay = 1500,
 	.canbox = e_cb_raise_vw_pq,

@@ -1,0 +1,31 @@
+using sysbus
+$name?="volvo_od2"
+mach create $name
+
+# Load the firmware.  Replace "firmware.elf" with your actual compiled ELF file.
+# You'll use the same "qemu.bin" that you build for QEMU, but load the ELF file.
+machine LoadPlatformDescription @platforms/cpus/stm32f103.repl
+machine LoadPlatformDescription @volvo_od2/volvo_od2.repl
+
+sysbus LoadELF $ORIGIN/../.pio/build/genericSTM32F103C8/firmware.elf
+
+# (Optional) Connect to GDB. Uncomment these lines if you want to use GDB.
+machine StartGdbServer 1234 true
+
+emulation CreateUartPtyTerminal "term2" "/tmp/uart2"
+connector Connect sysbus.usart1 term2
+
+
+# Create internal CAN hub for routing frames
+emulation CreateCANHub "canHub2"
+
+# Connect CAN controller to the CAN hub
+connector Connect sysbus.can1 canHub2
+
+# Create CAN bridge to host, by default it will be named `vcan0`
+machine CreateSocketCANBridge "socketcan" "vcan0"
+
+# Connect bridge to the internal network
+connector Connect socketcan canHub2
+
+
