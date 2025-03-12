@@ -1,2 +1,7 @@
 can1: CAN.STMCAN @ sysbus <0x40006400, +0x400>
     [0-3] -> nvic@[19-22]
+
+socketcan: CAN.SocketCANBridge @ sysbus
+    canInterfaceName: "vcan0"
+    ensureFdFrames: false
+    ensureXlFrames: false

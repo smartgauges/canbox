@@ -22,9 +22,6 @@ emulation CreateCANHub "canHub"
 # Connect CAN controller to the CAN hub
 connector Connect sysbus.can1 canHub
 
-# Create CAN bridge to host, by default it will be named `vcan0`
-machine CreateSocketCANBridge "socketcan" "vcan0"
-
 # Connect bridge to the internal network
 connector Connect socketcan canHub
 
