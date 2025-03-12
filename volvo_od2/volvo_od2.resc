@@ -2,14 +2,17 @@ using sysbus
 $name?="volvo_od2"
 mach create $name
 
-# Load the firmware.  Replace "firmware.elf" with your actual compiled ELF file.
-# You'll use the same "qemu.bin" that you build for QEMU, but load the ELF file.
+# genericSTM32F103C8 emulated hardware
 machine LoadPlatformDescription @platforms/cpus/stm32f103.repl
+
+# CAN emulated controller
 machine LoadPlatformDescription @volvo_od2.repl
 
+# Load firmware
 sysbus LoadELF $ORIGIN/../.pio/build/genericSTM32F103C8/firmware.elf
 
-emulation CreateUartPtyTerminal "term" "/tmp/uart"
+
+emulation CreateUartPtyTerminal "term" "/tmp/uart" "true"
 connector Connect sysbus.usart1 term
 
 
@@ -25,9 +28,9 @@ machine CreateSocketCANBridge "socketcan" "vcan0"
 # Connect bridge to the internal network
 connector Connect socketcan canHub
 
+# start the application
 start
 
-# (Optional) Add commands to be executed on simulation start.
 # Example: print a message to the Renode console
 logLevel 3
 # logFile $ORIGIN/../logs/my_log.txt
