@@ -18,7 +18,31 @@ static inline uint32_t get_be32(const uint8_t *buf) {
     return ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3];
 }
 
-// --- Handler Functions ---
+
+#define IGNITION_STATE_MASK       0x1  
+
+#define DASHBOARD_LIGHTNING_MASK 0x20
+
+#define BRIGHTNESS_MASK 0xF
+
+static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+    if (is_timeout(desc)) {
+        carstate.ign = 0;
+        carstate.illum = 0;
+        carstate.near_lights = 0;
+        carstate.acc = 0;
+        return;
+    }
+
+    carstate.ign = ((msg[4] && IGNITION_STATE_MASK) > 0);
+    carstate.acc = carstate.ign;
+   
+    carstate.near_lights = ((msg[3] && DASHBOARD_LIGHTNING_MASK) > 0);
+
+    carstate.illum = (msg[3] && BRIGHTNESS_MASK);
+}
+
 
 static void peugeot_407_ms_engine_status_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
@@ -244,6 +268,7 @@ static void peugeot_407_ms_161_handler(const uint8_t *msg, struct msg_desc_t *de
 
 static struct msg_desc_t peugeot_407_ms[] =
 {
+    { 0x036,    100, 0, 0, peugeot_407_ms_036_ign_light_handler }, // Add this line
     { 0x0B6,    100, 0, 0, peugeot_407_ms_engine_status_handler },
     { 0x14C,    100, 0, 0, peugeot_407_ms_speed_odometer_handler },
     { 0x131,    100, 0, 0, peugeot_407_ms_doors_fuel_handler },
