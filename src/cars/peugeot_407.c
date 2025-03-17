@@ -43,8 +43,53 @@ static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg
     carstate.illum = (msg[3] && BRIGHTNESS_MASK);
 }
 
+// --- Handler Functions ---
 
-static void peugeot_407_ms_engine_status_handler(const uint8_t * msg, struct msg_desc_t * desc)
+static void peugeot_407_ms_vin_336_handler(const uint8_t *msg, struct msg_desc_t *desc)
+{
+	if (is_timeout(desc)) {
+		// Handle timeout (maybe set a flag indicating VIN not fully received)
+        memset(carstate.vin, 0, sizeof(carstate.vin)); // Clear the VIN
+        carstate.vin[0] = 'n'; //"na"
+		carstate.vin[1] = 'a';
+		return;
+	}
+	// First 3 chars of VIN
+    memcpy(carstate.vin, msg, 3);
+
+}
+
+static void peugeot_407_ms_vin_3B6_handler(const uint8_t *msg, struct msg_desc_t *desc)
+{
+    if (is_timeout(desc)) {
+       // Handle timeout
+		memset(carstate.vin, 0, sizeof(carstate.vin)); // Clear the VIN
+        carstate.vin[0] = 'n'; //"na"
+		carstate.vin[1] = 'a';
+		return;
+	}
+
+	// Chars 4-9 of VIN
+    memcpy(carstate.vin + 3, msg, 6);
+}
+
+static void peugeot_407_ms_vin_2B6_handler(const uint8_t *msg, struct msg_desc_t *desc)
+{
+	if (is_timeout(desc)) {
+		// Handle timeout
+        memset(carstate.vin, 0, sizeof(carstate.vin)); // Clear the VIN
+        carstate.vin[0] = 'n'; //"na"
+		carstate.vin[1] = 'a';
+		return;
+	}
+
+	// Last 8 chars of VIN
+    memcpy(carstate.vin + 9, msg, 8);
+    carstate.vin[17] = '\0'; // Null-terminate the VIN
+}
+
+
+static void peugeot_407_ms_engine_status_0B6_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
     if (is_timeout(desc)) {
         carstate.engine_temp = 0;  // Reset to a default/safe value
@@ -268,8 +313,13 @@ static void peugeot_407_ms_161_handler(const uint8_t *msg, struct msg_desc_t *de
 
 static struct msg_desc_t peugeot_407_ms[] =
 {
-    { 0x36,    100, 0, 0, peugeot_407_ms_036_ign_light_handler }, // Add this line
-    { 0x0B6,    100, 0, 0, peugeot_407_ms_engine_status_handler },
+    { 0x36,    100, 0, 0, peugeot_407_ms_036_ign_light_handler },
+    { 0x0B6,    100, 0, 0, peugeot_407_ms_engine_status_0B6_handler },
+
+    { 0x336,   1000, 0, 0, peugeot_407_ms_vin_336_handler },
+    { 0x3B6,   1000, 0, 0, peugeot_407_ms_vin_3B6_handler },
+    { 0x2B6,   1000, 0, 0, peugeot_407_ms_vin_2B6_handler },
+
     { 0x14C,    100, 0, 0, peugeot_407_ms_speed_odometer_handler },
     { 0x131,    100, 0, 0, peugeot_407_ms_doors_fuel_handler },
     { 0x168,   1000, 0, 0, peugeot_407_ms_temp_battery_handler },

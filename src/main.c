@@ -56,7 +56,7 @@ struct key_cb_t key_cb =
 	.mici = canbox_mici,
 };
 
-uint8_t debug_on = 0;
+uint8_t debug_on = 1;
 uint32_t debug_on_cnt = 0;
 uint8_t msg_idx = 0;
 
@@ -513,7 +513,7 @@ int main(void)
 				canbox_process();
 			}
 		}
-
+#ifdef DEBUG
 		if (timer.flag_1000ms) {
 
 			timer.flag_1000ms = 0;
@@ -548,5 +548,6 @@ int main(void)
 				wakeups++;
 			}
 		}
+#endif
 	}
 }
