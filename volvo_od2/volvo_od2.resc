@@ -29,7 +29,7 @@ connector Connect socketcan canHub
 start
 
 # Example: print a message to the Renode console
-logLevel 3
+# logLevel -1
 # logFile $ORIGIN/../logs/my_log.txt
-showAnalyzer sysbus.usart1
+# showAnalyzer sysbus.usart1
 

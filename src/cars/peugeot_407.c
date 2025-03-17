@@ -268,7 +268,7 @@ static void peugeot_407_ms_161_handler(const uint8_t *msg, struct msg_desc_t *de
 
 static struct msg_desc_t peugeot_407_ms[] =
 {
-    { 0x036,    100, 0, 0, peugeot_407_ms_036_ign_light_handler }, // Add this line
+    { 0x36,    100, 0, 0, peugeot_407_ms_036_ign_light_handler }, // Add this line
     { 0x0B6,    100, 0, 0, peugeot_407_ms_engine_status_handler },
     { 0x14C,    100, 0, 0, peugeot_407_ms_speed_odometer_handler },
     { 0x131,    100, 0, 0, peugeot_407_ms_doors_fuel_handler },
