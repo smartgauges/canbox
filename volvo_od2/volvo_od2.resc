@@ -6,7 +6,7 @@ mach create $name
 machine LoadPlatformDescription @platforms/cpus/stm32f103.repl
 
 # CAN emulated controller
-machine LoadPlatformDescription @volvo_od2.repl
+machine LoadPlatformDescription @volvo_od2/volvo_od2.repl
 
 # Load firmware
 sysbus LoadELF $ORIGIN/../.pio/build/genericSTM32F103C8/firmware.elf

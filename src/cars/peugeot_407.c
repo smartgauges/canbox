@@ -92,25 +92,13 @@ static void peugeot_407_ms_vin_2B6_handler(const uint8_t *msg, struct msg_desc_t
 static void peugeot_407_ms_engine_status_0B6_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
     if (is_timeout(desc)) {
-        carstate.engine_temp = 0;  // Reset to a default/safe value
+        carstate.engine_temp = -48; // Minimum possible temperature.  Use a clearly invalid value.
         return;
     }
 
-    // Engine Coolant Temperature. Factor: 0.75, Offset: -48
+    // --- Coolant Temperature (Byte 5) ---
+    // Factor: 0.75, Offset: -48, Units: °C
     carstate.engine_temp = (int16_t)((float)msg[5] * 0.75 - 48.0);
-
-	// Engine State (Assuming bits 0-2 of byte 0, like your previous placeholder).
-    uint8_t ignition_state = msg[0] & 0x07;
-    if (ignition_state == 6) {
-        carstate.ign = 1;
-        carstate.acc = 1;  // Often, ACC is also on when IGN is on
-    } else if (ignition_state == 2) {
-        carstate.ign = 0;
-        carstate.acc = 1;
-    } else {
-        carstate.ign = 0;
-        carstate.acc = 0;
-    }
 }
 
 static void peugeot_407_ms_speed_odometer_handler(const uint8_t * msg, struct msg_desc_t * desc)
@@ -279,46 +267,53 @@ static void peugeot_407_ms_0E1_handler(const uint8_t * msg, struct msg_desc_t * 
     }
 }
 
-static void peugeot_407_ms_161_handler(const uint8_t *msg, struct msg_desc_t *desc) {
+static void peugeot_407_ms_161_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
     if (is_timeout(desc)) {
-        carstate.oil_temp = 0;   // Or a suitable "invalid" value, maybe -40 to match the offset.
-        carstate.fuel_lvl = 0; // Or a suitable "invalid" value.
+        carstate.oil_temp = -40; // Use a clearly invalid value, consistent with offset.
+        carstate.fuel_lvl = 0;  // Reset to a default/safe value.
         return;
     }
 
-    // Oil Temperature: Byte 2, Offset: +40.  Matches PSAVanCanBridge.
+    // --- Oil Temperature (Byte 2) ---
+    // Offset: +40, Units: °C
     carstate.oil_temp = (int16_t)msg[2] + 40;
 
-    // Fuel Level: Byte 3.  PSAVanCanBridge has a complex calculation involving
-    // several bits and a "tank full" value. We'll start by just storing the
-    // raw value and refine it later.
-    carstate.fuel_lvl = msg[3];
+    // --- Fuel Level (Byte 3) ---
+    // This is more complex.  PSAVanCanBridge suggests a calculation involving
+    // a "raw" fuel level and a "max fuel" value.  We'll extract both,
+    // and you'll need to implement the final calculation later.
+    uint8_t fuel_level_raw = msg[3]; // Store the *raw* byte 3 value.
+    uint8_t fuel_level_max = (msg[3] >> 1) & 0x7F; // Maximum value for fuel
+    uint8_t fuel_level = (msg[3] >> 2) & 0x3F; // Extract the 6 bits for fuel level
 
-    // The PSAVanCanBridge code suggests these calculations:
-    //
-     uint8_t fuel_lvl = (msg[3] >> 2) & 0x3F; // Get the 6 relevant bits.
-     uint8_t max_fuel    = (msg[3] >> 1) & 0x7F;
-     uint8_t fuel_percent = 0; // Or some other default/error value.
-     if (max_fuel != 0) { // Avoid division by zero
-         fuel_percent =  (uint8_t)(((uint32_t)fuel_lvl * 100) / max_fuel);
-     }
-    //
-    // We will implement this LATER, once we've confirmed we can *receive* the
-    // message at all.  First, store the raw value:
-    carstate.fuel_lvl = msg[3];  // Store the raw byte for now.
+    // for now lets add a simple calculation
+    carstate.fuel_lvl = fuel_level;
+    if (fuel_level_max != 0){
+        carstate.fuel_lvl = (uint8_t)(((uint32_t)fuel_level * 100) / fuel_level_max);
+        if (carstate.fuel_lvl > 10)
+            carstate.low_fuel_lvl = 0;
+        else
+            carstate.low_fuel_lvl = 1;
+    }
 
-    // The other bytes are, as of now, still unknown, but this structure is a *much*
-    // better starting point.
+    // --- Remaining Bytes ---
+    // Bytes 0, 1, and 4-7 are currently unknown. You'll need to analyze
+    // your CAN logs to determine their purpose.
+
 }
 
 static struct msg_desc_t peugeot_407_ms[] =
 {
     { 0x36,    100, 0, 0, peugeot_407_ms_036_ign_light_handler },
     { 0x0B6,    100, 0, 0, peugeot_407_ms_engine_status_0B6_handler },
+    { 0x161,    100, 0, 0, peugeot_407_ms_161_handler },
 
     { 0x336,   1000, 0, 0, peugeot_407_ms_vin_336_handler },
     { 0x3B6,   1000, 0, 0, peugeot_407_ms_vin_3B6_handler },
     { 0x2B6,   1000, 0, 0, peugeot_407_ms_vin_2B6_handler },
+
+
 
     { 0x14C,    100, 0, 0, peugeot_407_ms_speed_odometer_handler },
     { 0x131,    100, 0, 0, peugeot_407_ms_doors_fuel_handler },
@@ -330,6 +325,6 @@ static struct msg_desc_t peugeot_407_ms[] =
     { 0x126,    100, 0, 0, peugeot_407_ms_126_handler },
     { 0x128,    100, 0, 0, peugeot_407_ms_128_handler },
     { 0x0E1,    100, 0, 0, peugeot_407_ms_0E1_handler },
-    { 0x161,    100, 0, 0, peugeot_407_ms_161_handler },
+    
     // Add more message descriptors here as you identify them
 };

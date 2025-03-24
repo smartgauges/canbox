@@ -25,4 +25,5 @@ connector Connect sysbus.can1 canHub
 # Connect bridge to the internal network
 connector Connect socketcan canHub
 
-showAnalyzer sysbus.usart1
+# logLevel 1
+# logFile $ORIGIN/../logs/my_log1.txt
