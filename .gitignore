@@ -4,4 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 logs
-!**/__pycache__/
+**/__pycache__/
