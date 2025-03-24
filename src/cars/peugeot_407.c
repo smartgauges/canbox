@@ -19,7 +19,7 @@ static inline uint32_t get_be32(const uint8_t *buf) {
 }
 
 
-#define IGNITION_STATE_MASK       0x1  
+#define IGNITION_STATE_MASK       0x3
 
 #define DASHBOARD_LIGHTNING_MASK 0x20
 
@@ -35,12 +35,30 @@ static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg
         return;
     }
 
-    carstate.ign = ((msg[4] && IGNITION_STATE_MASK) > 0);
-    carstate.acc = carstate.ign;
-   
-    carstate.near_lights = ((msg[3] && DASHBOARD_LIGHTNING_MASK) > 0);
+    int state = (msg[4] && IGNITION_STATE_MASK);
 
-    carstate.illum = (msg[3] && BRIGHTNESS_MASK);
+    switch (state)
+    {
+    case 1:
+        carstate.ign = 1;
+        carstate.acc = 1;
+        carstate.near_lights = ((msg[3] && DASHBOARD_LIGHTNING_MASK) > 0);
+        carstate.illum = (msg[3] && BRIGHTNESS_MASK);
+        break;
+    case 3:
+        carstate.ign = 0;
+        carstate.acc = 1;
+        carstate.near_lights = 0;
+        carstate.illum = 0;
+        break;
+    
+    default:
+        carstate.ign = 0;
+        carstate.acc = 0;
+        carstate.near_lights = 0;
+        carstate.illum = 0;
+        break;
+    }
 }
 
 // --- Handler Functions ---

@@ -7,13 +7,17 @@ Suite Setup       Setup Test Environment
 Suite Teardown    Teardown Test Environment
 
 ***Variables***
-${CAN_ID_IGNITION}    0B6  #  Replace with the *actual* CAN ID for your car
-${EXPECTED_IGN_ON}    06    # Example - Replace with expected value
-${EXPECTED_IGN_OFF}   00    # Example - Replace with expected value
-${EXPECTED_ACC_ON}    02     # Example - replace with expected value.
-${EXPECTED_ACC_OFF}    00     # Example - replace with expected value.
-${BYTE_IGNITION}      0    # Byte 0 in the CAN message, as per your YAML
-${MASK_IGNITION}   07   # mask b00000111
+${CAN_ID_IGNITION}    036  #  Replace with the *actual* CAN ID for your car
+${CAN_REPEAT_NUM}    5
+${CAN_REPEAT_DELAY}    0.1
+${CAN_MESSAGE_IGN_ON}    01000000    # Example - Replace with expected value
+${CAN_MESSAGE_IGN_OFF}   00    # Example - Replace with expected value
+${CAN_MESSAGE_ACC_ON}    03000000 
+${EXPECTED_ACC_ON}    Acc:1     # Example - replace with expected value.
+${EXPECTED_ACC_OFF}    Acc:0     # Example - replace with expected value.
+${EXPECTED_IGN_ON}    Ign:1     # Example - replace with expected value.
+${EXPECTED_IGN_OFF}    Ign:0     # Example - replace with expected value.
+
 ${RENODE_PID}
 
 ***Test Cases***
@@ -31,8 +35,9 @@ Ignition On
     Comment    For example, you might need to send a specific CAN message here.
     Comment    For now, we are simulating this with a comment.
 
-    Wait For Can Message    ${CAN_ID_IGNITION}    timeout=30    mask=${MASK_IGNITION}    data=${EXPECTED_IGN_ON}
-    # Add checks for other expected CAN messages if necessary.
+    Send Can Message in Background   ${CAN_ID_IGNITION}     data=${CAN_MESSAGE_IGN_ON}  repeat=${CAN_REPEAT_NUM}  delay=${CAN_REPEAT_DELAY}
+    
+    Wait For Serial Regex   ${EXPECTED_ACC_ON} ${EXPECTED_IGN_ON}  timeout=2
 
 Ignition Off
     [Tags]  ignition  positive
@@ -40,7 +45,7 @@ Ignition Off
 
     Comment   Set Ignition OFF - Adapt this to your specific setup!
 
-    Wait For Can Message    ${CAN_ID_IGNITION}    timeout=30    mask=${MASK_IGNITION}    data=${EXPECTED_IGN_OFF}
+    Wait For Serial Regex   ${EXPECTED_ACC_OFF} ${EXPECTED_IGN_OFF}   timeout=2
 
 Accessory On
     [Tags]  accessory  positive
@@ -48,7 +53,9 @@ Accessory On
 
     Comment  Set Accessory ON (Ignition OFF) - Adapt this to your specific setup!
 
-    Wait For Can Message    ${CAN_ID_IGNITION}    timeout=30    mask=${MASK_IGNITION}    data=${EXPECTED_ACC_ON}
+    Send Can Message in Background   ${CAN_ID_IGNITION}     data=${CAN_MESSAGE_ACC_ON}  repeat=${CAN_REPEAT_NUM}  delay=${CAN_REPEAT_DELAY}
+    
+    Wait For Serial Regex   ${EXPECTED_ACC_ON} ${EXPECTED_IGN_OFF}  timeout=2
 
 Accessory Off
     [Tags]  accessory  positive
@@ -56,5 +63,5 @@ Accessory Off
 
     Comment  Set Accessory OFF - Adapt this to your specific setup!
 
-    Wait For Can Message    ${CAN_ID_IGNITION}    timeout=30     mask=${MASK_IGNITION}    data=${EXPECTED_ACC_OFF}
+    Wait For Serial Regex    ${EXPECTED_ACC_OFF} ${EXPECTED_IGN_OFF}  timeout=2
 

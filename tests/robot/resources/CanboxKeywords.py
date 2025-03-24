@@ -1,7 +1,9 @@
+import sys
 import can
 import serial
 import time
 import re
+from threading import Thread
 
 class CanboxKeywords:
     ROBOT_LIBRARY_SCOPE = 'SUITE'
@@ -36,13 +38,38 @@ class CanboxKeywords:
         if self.can_bus:
             self.can_bus.shutdown()
 
+    def send_can_message_in_background(self, can_id, data, repeat=1, delay=0.1, is_extended=False):
+        """
+        Sends a CAN message in the background.
+
+        Args:
+            can_id  (int): The CAN ID (in hex or decimal).
+            data (hex): The data payload (hex string, e.g., 'DEADBEEF').
+            repeat (int): Number of times to repeat the message.
+            delay (float): Delay in seconds between each message.
+            is_extended: set to True if canId is extended
+        """
+        def send_message_loop(can_id, data, repeat, delay, is_extended):
+            for _ in range(repeat):
+                try:
+                    self.send_can_message(can_id, data, is_extended)
+                except ValueError as e:
+                    print(f"Error sending CAN message: {e}")
+                    break
+                time.sleep(delay)
+
+        self.thread = Thread(target=send_message_loop, args=(can_id, data, repeat, delay, is_extended))
+        self.thread.daemon = True  # Daemonize thread
+        self.thread.start()
+        
+
     def send_can_message(self, can_id, data, is_extended=False):
         """
         Sends a CAN message.
 
         Args:
             can_id (int): The CAN ID (in hex or decimal).
-            data (str): The data payload (hex string, e.g., 'DEADBEEF').
+            data (hex): The data payload (hex string, e.g., 'DEADBEEF').
             is_extended: set to True if canId is extended
         """
         try:
@@ -51,14 +78,14 @@ class CanboxKeywords:
             raise ValueError(f"Invalid CAN ID: {can_id}. Must be a hexadecimal string.")
 
         try:
-            data_bytes = bytes.fromhex(data)
+            data_bytes = int(data, 16).to_bytes(8, byteorder='big')
         except ValueError:
             raise ValueError(f"Invalid data: {data}. Must be a hexadecimal string.")
 
         msg = can.Message(arbitration_id=can_id, data=data_bytes, is_extended_id=is_extended)
         try:
             self.can_bus.send(msg)
-            #print(f"Sent CAN message: ID={hex(can_id)}, Data={data}")
+            # print(f"Sent CAN message: ID={hex(can_id)}, Data={data}")
         except can.CanError as e:
             raise Exception(f"Failed to send CAN message: {e}")
 
@@ -132,7 +159,7 @@ class CanboxKeywords:
         Initializes the serial port connection.
         """
         try:
-            self.serial_port = serial.Serial(self.serial_port_path, self.baudrate, timeout=1)
+            self.serial_port = serial.Serial(self.serial_port_path, self.baudrate, timeout=30)
             print(f"Serial port {self.serial_port_path} opened at {self.baudrate} baud.")
         except serial.SerialException as e:
             raise Exception(f"Could not open serial port {self.serial_port_path}: {e}")
@@ -179,11 +206,14 @@ class CanboxKeywords:
          while time.time() - start_time < timeout:
              if self.serial_port.in_waiting > 0:
                  line = self.serial_port.readline().decode('utf-8', errors='replace').strip()
+                 # print(f"Received serial data: {line}")
                  self._serial_data += line + "\n"
                  if regex.search(line):
+                     print(f"Matched serial data: {line}")
                      return line
-             time.sleep(0.05)  # Short delay to avoid busy-waiting, but check frequently
-         return None
+             time.sleep(0.01)  # Short delay to avoid busy-waiting, but check frequently
+         
+         raise AssertionError(f"❌ Failed to find: {pattern}")
          
     def get_serial_log(self):
         """

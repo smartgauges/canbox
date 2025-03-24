@@ -31,10 +31,10 @@ Start Renode
     Create Directory    ${ROBOT_LOG_DIR}
     
     # Start Renode in the background.
-    ${process_result} =  Start Process   ${RENODE_CLI}   ${RENODE_SCRIPT}    shell=True    cwd=${CURDIR}/../../../
+    ${process_result} =  Start Process   ${RENODE_CLI}   ${RENODE_SCRIPT}  --console   shell=True    cwd=${CURDIR}/../../../
     ${RENODE_PID} =  Set Variable  ${process_result}
     Set Suite Variable  ${RENODE_PID} 
-     Log    Renode started with PID: ${RENODE_PID.pid}
+    Log    Renode started with PID: ${RENODE_PID.pid}
 
 
 Stop Renode
@@ -51,10 +51,11 @@ Execute
 Setup Test Environment
     Setup CAN Bus
     Start Renode
-    # Setup Serial
+    Sleep  3
+    Setup Serial
 
 Teardown Test Environment
-    # Close Serial
+    Close Serial
     Stop Renode
     Close Can
     
