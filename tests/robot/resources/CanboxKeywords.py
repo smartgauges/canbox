@@ -213,7 +213,7 @@ class CanboxKeywords:
                      return line
              time.sleep(0.01)  # Short delay to avoid busy-waiting, but check frequently
          
-         raise AssertionError(f"❌ Failed to find: {pattern}")
+         raise AssertionError(f"❌ Failed to find serial data matching pattern: {pattern}")
          
     def get_serial_log(self):
         """

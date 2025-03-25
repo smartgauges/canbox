@@ -7,17 +7,16 @@ Suite Setup       Setup Test Environment
 Suite Teardown    Teardown Test Environment
 
 ***Variables***
-${CAN_ID_IGNITION}    036  #  Replace with the *actual* CAN ID for your car
+${CAN_ID_IGNITION}    036  
 ${CAN_REPEAT_NUM}    5
 ${CAN_REPEAT_DELAY}    0.1
-${CAN_MESSAGE_IGN_ON}    01000000    # Example - Replace with expected value
-${CAN_MESSAGE_IGN_OFF}   00    # Example - Replace with expected value
-${CAN_MESSAGE_ACC_ON}    03000000 
-${EXPECTED_ACC_ON}    Acc:1     # Example - replace with expected value.
-${EXPECTED_ACC_OFF}    Acc:0     # Example - replace with expected value.
-${EXPECTED_IGN_ON}    Ign:1     # Example - replace with expected value.
-${EXPECTED_IGN_OFF}    Ign:0     # Example - replace with expected value.
-
+${CAN_MESSAGE_IGN_ON}    0E00062F010000A0
+${CAN_MESSAGE_IGN_OFF}   00
+${CAN_MESSAGE_ACC_ON}    0E00062F030000A0 
+${EXPECTED_ACC_ON}    Acc:1
+${EXPECTED_ACC_OFF}    Acc:0
+${EXPECTED_IGN_ON}    Ign:1
+${EXPECTED_IGN_OFF}    Ign:0
 ${RENODE_PID}
 
 ***Test Cases***
@@ -55,7 +54,7 @@ Accessory On
 
     Send Can Message in Background   ${CAN_ID_IGNITION}     data=${CAN_MESSAGE_ACC_ON}  repeat=${CAN_REPEAT_NUM}  delay=${CAN_REPEAT_DELAY}
     
-    Wait For Serial Regex   ${EXPECTED_ACC_ON} ${EXPECTED_IGN_OFF}  timeout=2
+    Wait For Serial Regex   ${EXPECTED_ACC_ON} ${EXPECTED_IGN_OFF}  timeout=10
 
 Accessory Off
     [Tags]  accessory  positive

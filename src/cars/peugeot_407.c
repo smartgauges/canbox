@@ -35,15 +35,15 @@ static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg
         return;
     }
 
-    int state = (msg[4] && IGNITION_STATE_MASK);
+    int state = (msg[4] & IGNITION_STATE_MASK);
 
     switch (state)
     {
     case 1:
         carstate.ign = 1;
         carstate.acc = 1;
-        carstate.near_lights = ((msg[3] && DASHBOARD_LIGHTNING_MASK) > 0);
-        carstate.illum = (msg[3] && BRIGHTNESS_MASK);
+        carstate.near_lights = ((msg[3] & DASHBOARD_LIGHTNING_MASK) > 0);
+        carstate.illum = (msg[3] & BRIGHTNESS_MASK);
         break;
     case 3:
         carstate.ign = 0;

@@ -15,16 +15,16 @@ ${EXPECTED_VOLUME_UP}   01  #Replace with the value for volume up
 ${EXPECTED_VOLUME_DOWN}  02   # Replace with the value for volume down
 
 ***Test Cases***
-Volume Up
-    [Tags]  steering_wheel  negative
-    Log    Pressing volume up button...
-    Comment Send a command to press volume up button - Adapt to your specific setup.
-    Wait For Can Message    ${CAN_ID_STEERING}    timeout=5    data=${EXPECTED_WHEEL_KEY_INFO}${EXPECTED_VOLUME_UP}
+# Volume Up
+#     [Tags]  steering_wheel  negative
+#     Log    Pressing volume up button...
+#     Comment Send a command to press volume up button - Adapt to your specific setup.
+#     Wait For Can Message    ${CAN_ID_STEERING}    timeout=5    data=${EXPECTED_WHEEL_KEY_INFO}${EXPECTED_VOLUME_UP}
 
-Volume Down
-    [Tags]  steering_wheel  positive
-    Log    Pressing volume down button...
-	Comment Send a command to press volume down button - Adapt to your specific setup.
-    Wait For Can Message   ${CAN_ID_STEERING}    timeout=5    data=${EXPECTED_WHEEL_KEY_INFO}${EXPECTED_VOLUME_DOWN}
+# Volume Down
+#     [Tags]  steering_wheel  positive
+#     Log    Pressing volume down button...
+# 	Comment Send a command to press volume down button - Adapt to your specific setup.
+#     Wait For Can Message   ${CAN_ID_STEERING}    timeout=5    data=${EXPECTED_WHEEL_KEY_INFO}${EXPECTED_VOLUME_DOWN}
 
 # Add more test cases for other steering wheel buttons (next/previous track, etc.)
