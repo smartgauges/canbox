@@ -1,6 +1,5 @@
 ***Settings***
 Documentation     Tests for Ignition (IGN) and Accessory (ACC) functionality.
-Library           ../resources/CanboxKeywords.py
 Resource          ../resources/settings.robot
 
 Suite Setup       Setup Test Environment

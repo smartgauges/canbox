@@ -1,25 +1,43 @@
+# tests/robot/resources/CanboxKeywords.py
+
 import sys
 import can
 import serial
 import time
 import re
 from threading import Thread
+import telnetlib
 
 class CanboxKeywords:
     ROBOT_LIBRARY_SCOPE = 'SUITE'
     ROBOT_LISTENER_API_VERSION = 2
 
-    def __init__(self, can_interface='vcan0', can_type='socketcan', serial_port='/tmp/uart', baudrate=38400):
+    # --- NEW: Monitor Constants ---
+    DEFAULT_MONITOR_HOST = "localhost"
+    DEFAULT_MONITOR_PORT = 3456 # Match the port in .resc
+    MONITOR_TIMEOUT = 5 # Timeout for telnet commands
+
+    def __init__(self, can_interface='vcan0', can_type='socketcan',
+                 serial_port='/tmp/uart', baudrate=38400,
+                 monitor_port=DEFAULT_MONITOR_PORT): # Added monitor_port
         self.can_bus = None
-        self.serial_port = None
+        # Main debug/command serial port
+        self.serial_port_cmd = None
+        self.serial_port_cmd_path = serial_port
+        self.baudrate = baudrate
+        # Renode Monitor Telnet Connection (NEW)
+        self.monitor_telnet = None
+        self.monitor_host = self.DEFAULT_MONITOR_HOST
+        self.monitor_port = monitor_port
+        # CAN settings
         self.can_interface = can_interface
         self.can_type = can_type
-        self.serial_port_path = serial_port
-        self.baudrate = baudrate
-        self._running = True #for correct handling of exit
-        self._serial_data = ""
+        # State variables
+        self._running = True
+        self._serial_cmd_data = ""
 
-
+    # --- CAN Methods (Keep as they are) ---
+    # ... setup_can_bus, close_can, send_can_message_in_background, send_can_message, wait_for_can_message ...
     def setup_can_bus(self, *args, **kwargs):
         """
         Initializes the CAN bus connection.
@@ -154,99 +172,243 @@ class CanboxKeywords:
                     return msg  # Return the message if data matches
         return None  # Timeout
 
+    # --- Serial Port Methods ---
     def setup_serial(self):
-        """
-        Initializes the serial port connection.
-        """
+        """Initializes the main command/debug serial port connection."""
         try:
-            self.serial_port = serial.Serial(self.serial_port_path, self.baudrate, timeout=30)
-            print(f"Serial port {self.serial_port_path} opened at {self.baudrate} baud.")
+            self.serial_port_cmd = serial.Serial(self.serial_port_cmd_path, self.baudrate, timeout=1) # Use specific name
+            print(f"Command serial port {self.serial_port_cmd_path} opened at {self.baudrate} baud.")
         except serial.SerialException as e:
-            raise Exception(f"Could not open serial port {self.serial_port_path}: {e}")
+            raise Exception(f"Could not open command serial port {self.serial_port_cmd_path}: {e}")
 
     def close_serial(self):
-        """
-        Closes the serial port.
-        """
-        if self.serial_port and self.serial_port.is_open:
-            self.serial_port.close()
-            self.serial_port = None
-            print("Serial port closed.")
+        """Closes the main command/debug serial port."""
+        if self.serial_port_cmd and self.serial_port_cmd.is_open:
+            self.serial_port_cmd.close()
+            self.serial_port_cmd = None
+            print("Command serial port closed.")
 
     def send_serial_command(self, command):
-        """
-        Sends a command over the serial port.
-
-        Args:
-            command (str): The command string to send.  Newline is added automatically.
-        """
-
-        if not self.serial_port or not self.serial_port.is_open:
-            raise Exception("Serial port is not open.")
+        """Sends a command over the main command serial port."""
+        if not self.serial_port_cmd or not self.serial_port_cmd.is_open:
+            raise Exception("Command serial port is not open.")
         try:
-            command_bytes = (command + '\n').encode('utf-8')  # Encode to bytes, add newline
-            self.serial_port.write(command_bytes)
-            #print(f"Sent serial command: {command}")
-
+            time.sleep(0.1) # Ensure previous output is processed
+            command_bytes = (command + '\n').encode('utf-8')
+            self.serial_port_cmd.write(command_bytes)
+            time.sleep(0.1) # Allow command to be processed
         except serial.SerialException as e:
             raise Exception(f"Error sending serial command: {e}")
 
     def wait_for_serial_regex(self, pattern, timeout=5):
-         """
-         Waits for a line matching a regular expression on the serial port.
-         Args:
-             pattern (str): The regular expression pattern to match (as a string).
-             timeout (float): Timeout in seconds.
+        """Waits for a line matching a regex on the COMMAND serial port."""
+        # ... (Keep the improved version from the previous response) ...
+        start_time = time.time()
+        regex = re.compile(pattern)
+        buffered_data = ""
+        try:
+            if self.serial_port_cmd and self.serial_port_cmd.in_waiting > 0:
+                 buffered_data = self.serial_port_cmd.read(self.serial_port_cmd.in_waiting).decode('utf-8', errors='replace')
+                 self._serial_cmd_data += buffered_data # Add to log
+        except (serial.SerialException, OSError):
+            pass
 
-         Returns:
-             str: The matching line if found, None otherwise.
-         """
-         start_time = time.time()
-         regex = re.compile(pattern)  # Compile the regex
-         while time.time() - start_time < timeout:
-             if self.serial_port.in_waiting > 0:
-                 line = self.serial_port.readline().decode('utf-8', errors='replace').strip()
-                 # print(f"Received serial data: {line}")
-                 self._serial_data += line + "\n"
-                 if regex.search(line):
-                     print(f"Matched serial data: {line}")
-                     return line
-             time.sleep(0.01)  # Short delay to avoid busy-waiting, but check frequently
-         
-         raise AssertionError(f"❌ Failed to find serial data matching pattern: {pattern}")
-         
+        for line in buffered_data.splitlines():
+             if regex.search(line.strip()):
+                 print(f"Matched buffered serial data: {line.strip()}")
+                 return line.strip()
+
+        while time.time() - start_time < timeout:
+            try:
+                if self.serial_port_cmd and self.serial_port_cmd.in_waiting > 0:
+                    line = self.serial_port_cmd.readline().decode('utf-8', errors='replace').strip()
+                    self._serial_cmd_data += line + "\n"
+                    if regex.search(line):
+                        print(f"Matched serial data: {line}")
+                        return line
+            except (serial.SerialException, OSError) as e:
+                print(f"Warning: Serial exception during read: {e}")
+                if not self.serial_port_cmd or not self.serial_port_cmd.is_open:
+                     print("Command serial port closed unexpectedly, attempting to reopen...")
+                     try: # Add try block for reopening
+                       self.setup_serial() # Try to reopen
+                       if not self.serial_port_cmd:
+                            raise AssertionError(f"❌ Command Serial port disconnected and could not be reopened.")
+                     except Exception as reopen_e:
+                          raise AssertionError(f"❌ Failed to reopen command serial port: {reopen_e}")
+
+            time.sleep(0.01)
+
+        print(f"Timeout reached. Checking accumulated log for pattern: {pattern}")
+        for line in self._serial_cmd_data.splitlines():
+             if regex.search(line.strip()):
+                 print(f"Matched accumulated serial data: {line.strip()}")
+                 return line.strip()
+
+        raise AssertionError(f"❌ Failed to find command serial data matching pattern: {pattern} within {timeout}s. Full log:\n{self._serial_cmd_data}")
+
+
     def get_serial_log(self):
-        """
-        Returns the accumulated serial data.
-        """
-        return self._serial_data
+        """Returns the accumulated command serial data."""
+        return self._serial_cmd_data
 
     def clear_serial_log(self):
-        """
-        Clears the accumulated serial data.
-        """
-        self._serial_data = ""
+        """Clears the accumulated command serial data."""
+        self._serial_cmd_data = ""
 
+    # --- NEW: Renode Monitor Interaction Keywords ---
+    def connect_to_renode_monitor(self):
+        """Connects to the Renode monitor via Telnet."""
+        if self.monitor_telnet is None:
+            try:
+                print(f"Connecting to Renode monitor at {self.monitor_host}:{self.monitor_port}...")
+                self.monitor_telnet = telnetlib.Telnet(self.monitor_host, self.monitor_port, timeout=self.MONITOR_TIMEOUT)
+                # Read initial welcome message or prompt
+                output = self.monitor_telnet.read_until(b"(monitor)", timeout=self.MONITOR_TIMEOUT).decode('utf-8', errors='replace')
+                print(f"Connected to Renode monitor. Initial output:\n{output}")
+            except Exception as e:
+                raise ConnectionError(f"Failed to connect to Renode monitor at {self.monitor_host}:{self.monitor_port}: {e}")
+
+    def disconnect_from_renode_monitor(self):
+        """Disconnects from the Renode monitor."""
+        if self.monitor_telnet:
+            try:
+                self.monitor_telnet.close()
+                print("Disconnected from Renode monitor.")
+            except Exception as e:
+                print(f"Warning: Error disconnecting from Renode monitor: {e}")
+            finally:
+                self.monitor_telnet = None
+
+    def execute_monitor_command(self, command, timeout=MONITOR_TIMEOUT):
+        """Executes a command on the Renode monitor and returns the output."""
+        if not self.monitor_telnet:
+            self.connect_to_renode_monitor() # Auto-connect if not already connected
+
+        try:
+            # print(f"Executing monitor command: {command}") # Debug
+            self.monitor_telnet.write(command.encode('utf-8') + b"\n")
+            # Read until the prompt returns, capturing the output
+            output = self.monitor_telnet.read_until(b"(monitor)", timeout=timeout).decode('utf-8', errors='replace')
+            # Clean up the output: remove the command echo and the final prompt
+            lines = output.splitlines()
+            if lines and lines[0].strip() == command: # Remove command echo if present
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "(monitor)": # Remove trailing prompt
+                lines = lines[:-1]
+            result = "\n".join(lines).strip()
+            # print(f"Monitor command result: {result}") # Debug
+            return result
+        except EOFError:
+             raise ConnectionAbortedError("Renode monitor connection closed unexpectedly.")
+        except Exception as e:
+            raise RuntimeError(f"Error executing Renode monitor command '{command}': {e}")
+
+    def read_gpio_register(self, gpio_peripheral, register_offset=0x0C):
+        """
+        Reads a specific GPIO register (default ODR) via the Renode monitor.
+
+        Args:
+            gpio_peripheral (str): The name of the GPIO peripheral in Renode (e.g., "sysbus.gpioB").
+            register_offset (int): The byte offset of the register to read (default 0x0C for ODR).
+
+        Returns:
+            int: The value of the register.
+        Raises:
+            ValueError: If the output cannot be parsed as a number.
+            RuntimeError: If the monitor command fails.
+        """
+        command = f" {gpio_peripheral} ReadDoubleWord {register_offset}"
+        output = self.execute_monitor_command(command)
+        # Output is usually just the hex number, e.g., "0x200"
+        try:
+            # Find the hexadecimal value in the output (robust parsing)
+            match = re.search(r'0x[0-9a-fA-F]+', output)
+            if match:
+                return int(match.group(0), 16)
+            else:
+                 raise ValueError(f"Could not parse register value from monitor output: '{output}'")
+        except ValueError as e:
+             raise ValueError(f"Error parsing register value from monitor output '{output}': {e}")
+
+
+    def get_gpio_pin_state_directly(self, gpio_peripheral, pin_number):
+        """
+        Reads the ODR for the peripheral and returns the state of a specific pin.
+
+        Args:
+            gpio_peripheral (str): Renode name (e.g., "sysbus.gpioB").
+            pin_number (int): The pin number (0-15).
+
+        Returns:
+            int: 0 if the pin is low, 1 if the pin is high.
+        """
+        if not (0 <= pin_number <= 15):
+             raise ValueError("Pin number must be between 0 and 15.")
+
+        register_value = self.read_gpio_register(gpio_peripheral, 0x0C) # Read ODR
+        pin_mask = 1 << pin_number
+        return 1 if (register_value & pin_mask) else 0
+
+    def gpio_pin_should_be_directly(self, gpio_peripheral, pin_number, expected_state, timeout=2.0, polling_interval=0.1):
+        """
+        Waits until a GPIO pin reaches the expected state by directly reading registers via monitor.
+
+        Args:
+            gpio_peripheral (str): Renode name (e.g., "sysbus.gpioB").
+            pin_number (int): The pin number (0-15).
+            expected_state (int): 0 for low, 1 for high.
+            timeout (float): Max time to wait in seconds.
+            polling_interval(float): How often to check the register.
+        """
+        pin_number = int(pin_number)
+        expected_state = int(expected_state)
+
+        start_time = time.time()
+        last_state = -1 # Initialize to an invalid state
+        while time.time() - start_time < timeout:
+            current_state = self.get_gpio_pin_state_directly(gpio_peripheral, pin_number)
+            if current_state != last_state:
+                 print(f"Direct GPIO Check - {gpio_peripheral} Pin {pin_number}: {current_state}")
+                 last_state = current_state
+
+            if current_state == expected_state:
+                print(f"✅ Direct GPIO - {gpio_peripheral} Pin {pin_number} reached state {expected_state}")
+                return
+            time.sleep(polling_interval)
+
+        # Timeout failure
+        final_state = self.get_gpio_pin_state_directly(gpio_peripheral, pin_number) # Get final state
+        raise AssertionError(f"❌ Direct GPIO - {gpio_peripheral} Pin {pin_number} did not reach state {expected_state} within {timeout}s. Last state: {final_state}")
+
+    # --- Cleanup ---
     def _close(self):
-        """
-        This method is automatically called when the library is closed.
-        """
-        if self.serial_port is not None:
-            self.close_serial()
-            self.serial_port = None  # Set to None after closing
-        if self.can_bus is not None:
-            self.close_can()
-            self.can_bus = None   # Set to None after shutdown
+        """Closes CAN, serial ports, and telnet connection."""
+        # ... (existing close_serial and close_can calls) ...
+        if self.serial_port_cmd is not None:
+            try:
+                if self.serial_port_cmd.is_open:
+                    self.serial_port_cmd.close()
+                self.serial_port_cmd = None
+            except Exception as e:
+                print(f"Error closing command serial port: {e}")
 
+        self.disconnect_from_renode_monitor() # NEW: Disconnect telnet
+
+        if self.can_bus is not None:
+            try:
+                self.can_bus.shutdown()
+                self.can_bus = None
+            except Exception as e:
+                print(f"Error shutting down CAN bus: {e}")
+
+    def __del__(self):
+        self._close()
+
+    # --- Other keywords (stop_all_logging) remain the same ---
     def stop_all_logging(self):
         """
         Stops the logging threads.
         """
         global running  # Access the global running flag
         running = False
-
-    def __del__(self):
-        """
-        Ensure resources get cleaned up if the object is deleted.
-        """
-        self._close()
