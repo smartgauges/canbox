@@ -19,47 +19,49 @@ static inline uint32_t get_be32(const uint8_t *buf) {
 }
 
 
-#define IGNITION_STATE_MASK       0x3
+#define IGN_STATE_BYTE         4  // Byte containing primary ignition state
+#define IGN_STATE_MASK         0x03 // Bits 0 and 1 for state
+#define IGN_STATE_OFF          0x00 // Value for OFF state
+#define IGN_STATE_ACC          0x03 // Value for ACC state (Needs verification!)
+#define IGN_STATE_ON           0x01 // Value for IGN ON state (Needs verification!)
 
-#define DASHBOARD_LIGHTNING_MASK 0x20
-
-#define BRIGHTNESS_MASK 0xF
+#define DASH_LIGHT_BYTE        3  // Byte containing dashboard light status
+#define DASH_LIGHT_ENABLE_MASK 0x20 // Bit 5 for dashboard lights enabled
+#define DASH_BRIGHTNESS_MASK   0x0F // Bits 0-3 for brightness level
 
 static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
     if (is_timeout(desc)) {
         carstate.ign = 0;
-        carstate.illum = 0;
-        carstate.near_lights = 0;
         carstate.acc = 0;
+        carstate.illum = 0; // Store brightness level here
+        // Note: We don't reset near_lights here, it belongs to another message handler
         return;
     }
 
-    int state = (msg[4] & IGNITION_STATE_MASK);
+    // --- Decode Ignition State (Needs Verification!) ---
+    uint8_t ignition_raw_state = msg[IGN_STATE_BYTE] & IGN_STATE_MASK;
 
-    switch (state)
-    {
-    case 1:
+    if (ignition_raw_state == IGN_STATE_ON) {
         carstate.ign = 1;
-        carstate.acc = 1;
-        carstate.near_lights = ((msg[3] & DASHBOARD_LIGHTNING_MASK) > 0);
-        carstate.illum = (msg[3] & BRIGHTNESS_MASK);
-        break;
-    case 3:
+        carstate.acc = 1; // ACC is usually on when IGN is on
+    } else if (ignition_raw_state == IGN_STATE_ACC) {
         carstate.ign = 0;
         carstate.acc = 1;
-        carstate.near_lights = 0;
-        carstate.illum = 0;
-        break;
-    
-    default:
+    } else { // Assuming OFF or other states mean OFF
         carstate.ign = 0;
         carstate.acc = 0;
-        carstate.near_lights = 0;
-        carstate.illum = 0;
-        break;
     }
-}
+
+    // --- Decode Illumination Status ---
+    // Store the raw brightness level (0-15)
+    carstate.illum = msg[DASH_LIGHT_BYTE] & DASH_BRIGHTNESS_MASK;
+
+    // Determine if dashboard lights are generally enabled (for ILLUM signal/bit)
+    // We'll use a separate flag in carstate if needed, or just check the bit directly where needed.
+    // For now, let carstate.illum store brightness. The check for the ILLUM pin/bit will be done elsewhere based on this.
+    // Example check later: `bool lights_enabled = (msg[DASH_LIGHT_BYTE] & DASH_LIGHT_ENABLE_MASK);`
+}   
 
 // --- Handler Functions ---
 

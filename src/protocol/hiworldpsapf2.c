@@ -56,43 +56,45 @@ static uint8_t map_radar_distance_hiworld(uint8_t car_distance) {
 static void canbox_hiworld_psa_basic_info_process(void) {
     uint8_t data[6] = {0}; // LEN=0x07 -> 6 DATA bytes
 
-    // Data 0: Doors
+    // ... (Keep Door decoding for Data 0 as before) ...
     if (car_get_door_fl()) data[0] |= 0x80;
     if (car_get_door_fr()) data[0] |= 0x40;
     if (car_get_door_rl()) data[0] |= 0x20;
     if (car_get_door_rr()) data[0] |= 0x10;
     if (car_get_tailgate()) data[0] |= 0x08;
     if (car_get_bonnet()) data[0] |= 0x04;
-    // Bits 1-0 reserved
+
 
     // Data 1: Status
-    if (car_get_acc()) data[1] |= 0x80;
-    // Illumination: Use near_lights OR check illum level (depending on car's data)
-    if (car_get_near_lights() || (car_get_illum() > conf_get_illum())) data[1] |= 0x40;
-    if (get_rear_delay_state()) data[1] |= 0x20; // Use the delayed reverse state
+    if (car_get_acc()) data[1] |= 0x80; // Use updated carstate.acc
+
+    // Illumination Status Bit (Data 1, Bit 6)
+    // Turn ON Hiworld bit if dashboard lights are considered enabled
+    // Using the simple check: brightness level > 0
+    uint8_t illum_brightness = car_get_illum(); // Get brightness level 0-15
+    if (illum_brightness > 0) { // Turn on ILL bit if brightness > 0 (adjust threshold if needed)
+         data[1] |= 0x40;
+    }
+    // More robust: Check the specific enable bit if you decode and store it separately
+
+    if (get_rear_delay_state()) data[1] |= 0x20;
     if (car_get_park_break()) data[1] |= 0x10;
-    if (car_get_ds_belt()) data[1] |= 0x08; // Assuming 1 = Unfastened
+    if (car_get_ds_belt()) data[1] |= 0x08;
     struct radar_t radar;
     car_get_radar(&radar);
-    if (radar.state != e_radar_off && radar.state != e_radar_undef) data[1] |= 0x04; // Original Radar Status
-    // Bits 1-0 reserved
+    if (radar.state != e_radar_off && radar.state != e_radar_undef) data[1] |= 0x04;
 
-    // Data 2: Steering Wheel Angle
-    // Documentation is unclear on scaling. Sending raw scaled value (-100 to 100) for now.
-    // Needs verification if the head unit expects degrees or a different range.
+    // ... (Keep Steering Wheel Angle and Temp decoding for Data 2, 3 as before) ...
     int8_t wheel_angle = 0;
-    car_get_wheel(&wheel_angle); // Gets value -100 to 100
-    data[2] = (uint8_t)wheel_angle; // Direct cast - likely needs scaling specific to Hiworld PSA
+    car_get_wheel(&wheel_angle);
+    data[2] = (uint8_t)wheel_angle;
 
-    // Data 3: Outdoor Temperature
-    int16_t temp = car_get_temp(); // Assuming car_get_temp() returns degrees C
-    if (temp < -40 || temp > 87) { // Check validity based on protocol range
-        data[3] = 0xFF; // Invalid
+    int16_t temp = car_get_temp();
+    if (temp < -40 || temp > 87) {
+        data[3] = 0xFF;
     } else {
         data[3] = (uint8_t)(temp + 40);
     }
-
-    // Data 4, 5: Reserved
     data[4] = 0x00;
     data[5] = 0x00;
 

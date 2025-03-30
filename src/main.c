@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "hw.h"
 #include "hw_tick.h"
@@ -436,25 +437,42 @@ void print_debug(void)
 
 static void gpio_process(void)
 {
-	uint8_t acc = car_get_acc();
-//	uint8_t ign = car_get_ign();
-//	uint8_t park_lights = car_get_park_lights();
-	uint8_t ill = car_get_illum();
+    uint8_t acc = car_get_acc();
+    // uint8_t ign = car_get_ign(); // Not directly used for GPIO pins here
 
-	if (acc)
-		hw_gpio_acc_on();
-	else
-		hw_gpio_acc_off();
+    // Get the *raw brightness level* stored in carstate.illum
+    uint8_t illum_brightness = car_get_illum();
+    // Read the 'lights enabled' bit directly from the last received message if needed,
+    // OR infer it from brightness > 0 (simpler approach first)
+    bool dashboard_lights_on = (illum_brightness > 0); // Simplistic check: lights on if brightness > 0
 
-	if (ill > conf_get_illum())
-		hw_gpio_ill_on();
-	else
-		hw_gpio_ill_off();
+    // More robust check might involve reading the enable bit if stored separately, e.g.:
+    // bool dashboard_lights_on = car_get_dashboard_lights_enabled(); // If you add such a getter
 
-	if (get_rear_delay_state())
-		hw_gpio_rear_on();
-	else
-		hw_gpio_rear_off();
+    if (acc)
+        hw_gpio_acc_on();
+    else
+        hw_gpio_acc_off();
+
+    // Control ILL pin based on whether dashboard lights are considered ON,
+    // potentially comparing brightness to a threshold if needed later.
+    if (dashboard_lights_on) // Turn ILL pin ON if dashboard lights are on
+        hw_gpio_ill_on();
+    else
+        hw_gpio_ill_off();
+
+    if (get_rear_delay_state())
+        hw_gpio_rear_on();
+    else
+        hw_gpio_rear_off();
+
+    // PARK pin logic still needs Park Brake CAN message handler
+    uint8_t park_brake = car_get_park_break();
+     if (park_brake == 1) { // Assuming 1 means ON, 0 means OFF
+         hw_gpio_park_on(); // Or hw_gpio_park_off() depending on PARK signal logic (GND when ON?)
+     } else {
+         hw_gpio_park_off(); // Or hw_gpio_park_on()
+     }
 }
 
 uint8_t fmax_global[4] = { 10, 10, 10, 10 }; // Example global fmax/rmax, adjust as needed
