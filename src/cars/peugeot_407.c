@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdbool.h>
 #include "car.h"
 #include "hw_can.h"
 #include "utils.h"  // Make sure utils.h includes the scale function
@@ -18,50 +19,114 @@ static inline uint32_t get_be32(const uint8_t *buf) {
     return ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) | ((uint32_t)buf[2] << 8) | buf[3];
 }
 
+// --- Defines based on verified 0x36 log data ---
+#define ID_0x036_IGN_STATE_BYTE         4
+#define ID_0x036_IGN_STATE_MASK         0x03 // Bits 0-1 seem sufficient based on values 0,1,2,3
+#define ID_0x036_IGN_STATE_OFF          0x00
+#define ID_0x036_IGN_STATE_ON           0x01
+#define ID_0x036_IGN_STATE_CRANKING     0x02 // State during engine start
+#define ID_0x036_IGN_STATE_ACC          0x03
 
-#define IGN_STATE_BYTE         4  // Byte containing primary ignition state
-#define IGN_STATE_MASK         0x03 // Bits 0 and 1 for state
-#define IGN_STATE_OFF          0x00 // Value for OFF state
-#define IGN_STATE_ACC          0x03 // Value for ACC state (Needs verification!)
-#define IGN_STATE_ON           0x01 // Value for IGN ON state (Needs verification!)
+#define ID_0x036_LIGHT_BYTE             3
+#define ID_0x036_LIGHT_ENABLE_MASK      0x20 // Bit 5: Dashboard lighting enabled
+#define ID_0x036_LIGHT_BRIGHTNESS_MASK  0x0F // Bits 0-3: Brightness level (0-15)
 
-#define DASH_LIGHT_BYTE        3  // Byte containing dashboard light status
-#define DASH_LIGHT_ENABLE_MASK 0x20 // Bit 5 for dashboard lights enabled
-#define DASH_BRIGHTNESS_MASK   0x0F // Bits 0-3 for brightness level
+// Structure to hold decoded state from 0x036 for clarity elsewhere
+typedef struct {
+    uint8_t raw_ign_state;
+    bool lights_enabled;
+    uint8_t brightness;
+} state_0x036_t;
 
 static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
     if (is_timeout(desc)) {
         carstate.ign = 0;
         carstate.acc = 0;
-        carstate.illum = 0; // Store brightness level here
-        // Note: We don't reset near_lights here, it belongs to another message handler
+        carstate.illum = 0; // Brightness level
         return;
     }
 
-    // --- Decode Ignition State (Needs Verification!) ---
-    uint8_t ignition_raw_state = msg[IGN_STATE_BYTE] & IGN_STATE_MASK;
+    // Decode current message
+    state_0x036_t current_state;
+    current_state.raw_ign_state = msg[ID_0x036_IGN_STATE_BYTE] & ID_0x036_IGN_STATE_MASK;
+    current_state.lights_enabled = (msg[ID_0x036_LIGHT_BYTE] & ID_0x036_LIGHT_ENABLE_MASK);
+    current_state.brightness = msg[ID_0x036_LIGHT_BYTE] & ID_0x036_LIGHT_BRIGHTNESS_MASK;
 
-    if (ignition_raw_state == IGN_STATE_ON) {
-        carstate.ign = 1;
-        carstate.acc = 1; // ACC is usually on when IGN is on
-    } else if (ignition_raw_state == IGN_STATE_ACC) {
-        carstate.ign = 0;
-        carstate.acc = 1;
-    } else { // Assuming OFF or other states mean OFF
-        carstate.ign = 0;
-        carstate.acc = 0;
+    // --- Update Ignition/ACC State ---
+    switch (current_state.raw_ign_state) {
+        case ID_0x036_IGN_STATE_ON:
+        case ID_0x036_IGN_STATE_CRANKING: // Treat cranking as IGN ON for HU power
+            carstate.ign = 1;
+            carstate.acc = 1;
+            break;
+        case ID_0x036_IGN_STATE_ACC:
+            carstate.ign = 0;
+            carstate.acc = 1;
+            break;
+        case ID_0x036_IGN_STATE_OFF:
+        default: // Treat unknown states as OFF
+            carstate.ign = 0;
+            carstate.acc = 0;
+            break;
     }
 
-    // --- Decode Illumination Status ---
-    // Store the raw brightness level (0-15)
-    carstate.illum = msg[DASH_LIGHT_BYTE] & DASH_BRIGHTNESS_MASK;
+    // --- Update Illumination State ---
+    // Store the brightness level (0-15)
+    carstate.illum = current_state.brightness;
+}
 
-    // Determine if dashboard lights are generally enabled (for ILLUM signal/bit)
-    // We'll use a separate flag in carstate if needed, or just check the bit directly where needed.
-    // For now, let carstate.illum store brightness. The check for the ILLUM pin/bit will be done elsewhere based on this.
-    // Example check later: `bool lights_enabled = (msg[DASH_LIGHT_BYTE] & DASH_LIGHT_ENABLE_MASK);`
-}   
+
+
+// --- Defines based on verified 0x0F6 log data ---
+#define ID_0x0F6_BYTE0                  0
+#define ID_0x0F6_REVERSE_MASK           0x08 // VERIFY THIS BIT! (Log shows bit 3, docs say bit 2)
+#define ID_0x0F6_TURN_LEFT_MASK         0x01 // Needs verification with logs
+#define ID_0x0F6_TURN_RIGHT_MASK        0x02 // Needs verification with logs
+#define ID_0x0F6_IGNITION_ON_MASK       0x80 // Bit 7 confirms IGN is ON
+
+#define ID_0x0F6_AMBIENT_TEMP_BYTE      3
+
+static void peugeot_407_ms_0F6_handler(const uint8_t * msg, struct msg_desc_t * desc)
+{
+    if (is_timeout(desc)) {
+        // Reset states derived *only* from this message if they timeout
+        carstate.selector = STATE_UNDEF;
+        // Keep carstate.selector based on its primary source message if it exists
+        carstate.temp = -40; // Reset ambient temp to minimum possible
+        // Reset turn signal indicators if you add them later
+        return;
+    }
+
+    // --- Decode Reverse Gear Status (VERIFY MASK!) ---
+    if (msg[ID_0x0F6_BYTE0] & ID_0x0F6_REVERSE_MASK) {
+        carstate.selector = e_selector_r;
+    } else {
+        if (carstate.selector == e_selector_r) {
+            carstate.selector = e_selector_p; // Or undef/last known non-reverse state
+        }
+    }
+
+    // --- Decode Ambient Temperature ---
+    // Using formula from PSACANBridge: (RAW * 0.5) - 40.0
+    uint8_t ambient_temp_raw = msg[ID_0x0F6_AMBIENT_TEMP_BYTE];
+    if (ambient_temp_raw != 0xFF) { // Check for invalid value
+       // Cast to float for calculation, then back to int16_t for storage
+       carstate.temp = (int16_t)(((float)ambient_temp_raw * 0.5f) - 40.0f);
+    } else {
+       carstate.temp = -40; // Or some other indicator of invalid data
+    }
+
+
+    // --- TODO: Decode Turn Signals (when logs are available) ---
+    // uint8_t left_ts = (msg[ID_0x0F6_BYTE0] & ID_0x0F6_TURN_LEFT_MASK);
+    // uint8_t right_ts = (msg[ID_0x0F6_BYTE0] & ID_0x0F6_TURN_RIGHT_MASK);
+    // Update carstate or trigger callbacks/protocol messages as needed
+
+    // We don't update carstate.ign here, assuming 0x036 is the primary source.
+    // We ignore coolant temp and odometer from this message based on analysis.
+}
+
 
 // --- Handler Functions ---
 
@@ -326,6 +391,10 @@ static void peugeot_407_ms_161_handler(const uint8_t * msg, struct msg_desc_t * 
 static struct msg_desc_t peugeot_407_ms[] =
 {
     { 0x36,    100, 0, 0, peugeot_407_ms_036_ign_light_handler },
+    { 0x0F6,    100, 0, 0, peugeot_407_ms_0F6_handler }, 
+
+
+
     { 0x0B6,    100, 0, 0, peugeot_407_ms_engine_status_0B6_handler },
     { 0x161,    100, 0, 0, peugeot_407_ms_161_handler },
 

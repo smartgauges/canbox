@@ -8,77 +8,77 @@
 #define STATE_UNDEF 0xff
 typedef struct car_state_t
 {
-	enum e_car_t car;
-	uint8_t vin[18];
-	uint8_t acc;
-	uint8_t ign;
-	uint8_t engine;
-	uint32_t taho;
-	uint32_t speed;
-	//in percentages 0% : 100%
-	uint8_t illum;
-	uint8_t selector;
-	struct radar_t radar;
-	//in percentages -100% : 100%
-	int8_t wheel;
+    enum e_car_t car;       // Currently selected car model (e.g., e_car_peugeot_407)
+    uint8_t vin[18];        // Vehicle Identification Number (ASCII string, null-terminated)
+    uint8_t acc;            // Accessory status (1 = ON, 0 = OFF). Usually indicates key is in first position.
+    uint8_t ign;            // Ignition status (1 = ON, 0 = OFF). Usually indicates key is in second position (run).
+    uint8_t engine;         // Engine running status (1 = Running, 0 = Not Running). Determined by RPM or specific CAN bit.
+    uint32_t taho;          // Engine speed (Tachometer reading). Units: RPM (Revolutions Per Minute).
+    uint32_t speed;         // Vehicle speed. Units: km/h (Kilometers Per Hour).
+    uint8_t illum;          // Dashboard illumination brightness level (raw value, e.g., 0-15 or 0-100%, depending on source message). Used to determine if lights are generally on.
+    uint8_t selector;       // Gear selector position (enum e_selector_t: P, R, N, D, S, M, M+, M-). STATE_UNDEF if unknown.
+    struct radar_t radar;   // Parking sensor status and distances (see radar_t struct definition). state can be e_radar_off, e_radar_on, e_radar_on_front, e_radar_on_rear.
+    int8_t wheel;           // Steering wheel angle. Units: Percentage (-100% Left to +100% Right). Centered is 0.
 
-	uint8_t fl_door;
-	uint8_t fr_door;
-	uint8_t rl_door;
-	uint8_t rr_door;
-	uint8_t bonnet;
-	uint8_t tailgate;
+    uint8_t fl_door;        // Front Left door status (1 = Open, 0 = Closed). STATE_UNDEF if unknown.
+    uint8_t fr_door;        // Front Right door status (1 = Open, 0 = Closed). STATE_UNDEF if unknown.
+    uint8_t rl_door;        // Rear Left door status (1 = Open, 0 = Closed). STATE_UNDEF if unknown.
+    uint8_t rr_door;        // Rear Right door status (1 = Open, 0 = Closed). STATE_UNDEF if unknown.
+    uint8_t bonnet;         // Bonnet (Hood) status (1 = Open, 0 = Closed). STATE_UNDEF if unknown.
+    uint8_t tailgate;       // Tailgate (Trunk) status (1 = Open, 0 = Closed). STATE_UNDEF if unknown.
 
-	uint8_t park_lights;
-	uint8_t near_lights;
-	uint8_t park_break;
-	uint8_t low_washer;
-	//driver seat belt
-	uint8_t ds_belt;
+    uint8_t park_lights;    // Parking lights / Sidelights status (1 = ON, 0 = OFF). STATE_UNDEF if unknown.
+    uint8_t near_lights;    // Near lights / Low beam headlights status (1 = ON, 0 = OFF). STATE_UNDEF if unknown.
+    uint8_t park_break;     // Parking brake status (1 = Engaged/ON, 0 = Released/OFF). STATE_UNDEF if unknown.
+    uint8_t low_washer;     // Low washer fluid warning status (1 = Low, 0 = OK). STATE_UNDEF if unknown.
+    uint8_t ds_belt;        // Driver's seat belt status (1 = Unfastened, 0 = Fastened). STATE_UNDEF if unknown.
 
-	uint32_t odometer;
-	uint32_t voltage;
-	uint8_t low_voltage;
-	int16_t temp;      // Changed from uint32_t, since it can be negative
-	uint8_t fuel_lvl;
-	uint8_t low_fuel_lvl;
-    int16_t engine_temp;   // New Member
-	int16_t oil_temp;
+    uint32_t odometer;      // Odometer reading. Units: km (Kilometers).
+    uint32_t voltage;       // Battery / System voltage. Units: Scaled integer (e.g., Volts * 100 -> 1250 for 12.5V).
+    uint8_t low_voltage;    // Low battery voltage warning status (1 = Low, 0 = OK). STATE_UNDEF if unknown.
+    int16_t temp;           // Outside Ambient Temperature. Units: °C (Degrees Celsius). Can be negative.
+    uint8_t fuel_lvl;       // Fuel level. Units: Percentage (0% - 100%).
+    uint8_t low_fuel_lvl;   // Low fuel level warning status (1 = Low, 0 = OK). STATE_UNDEF if unknown.
+    int16_t engine_temp;    // Engine Coolant Temperature. Units: °C (Degrees Celsius). Can be negative.
+    int16_t oil_temp;       // Engine Oil Temperature. Units: °C (Degrees Celsius). Can be negative.
 } car_state_t;
 
+// Initialize the global car state structure
 static car_state_t carstate =
 {
-	.car = e_car_nums,
-	.vin = { STATE_UNDEF },
-	.acc = STATE_UNDEF,
-	.ign = STATE_UNDEF,
-	.engine = STATE_UNDEF,
-	.taho = 0,
-	.speed = 0,
-	.illum = STATE_UNDEF,
-	.selector = STATE_UNDEF,
-	.radar = { .state = STATE_UNDEF, },
-	.wheel = 0,
+    .car = e_car_nums,          // Initial car type set to invalid/end marker
+    .vin = { STATE_UNDEF },     // VIN buffer initialized to undefined
+    .acc = STATE_UNDEF,         // ACC status unknown initially
+    .ign = STATE_UNDEF,         // IGN status unknown initially
+    .engine = STATE_UNDEF,      // Engine status unknown initially
+    .taho = 0,                  // Engine RPM starts at 0
+    .speed = 0,                 // Vehicle speed starts at 0
+    .illum = 0,                 // Illumination brightness starts at 0 (STATE_UNDEF might be better if 0 is a valid brightness)
+    .selector = STATE_UNDEF,    // Gear selector unknown initially
+    .radar = { .state = STATE_UNDEF, .fl=0, .flm=0, .frm=0, .fr=0, .rl=0, .rlm=0, .rrm=0, .rr=0 }, // Radar state unknown, distances 0
+    .wheel = 0,                 // Steering wheel centered initially
 
-	.fl_door = STATE_UNDEF,
-	.fr_door = STATE_UNDEF,
-	.rl_door = STATE_UNDEF,
-	.rr_door = STATE_UNDEF,
-	.bonnet = STATE_UNDEF,
-	.tailgate = STATE_UNDEF,
+    .fl_door = STATE_UNDEF,     // Door statuses unknown initially
+    .fr_door = STATE_UNDEF,
+    .rl_door = STATE_UNDEF,
+    .rr_door = STATE_UNDEF,
+    .bonnet = STATE_UNDEF,
+    .tailgate = STATE_UNDEF,
 
-	.park_lights = STATE_UNDEF,
-	.near_lights = STATE_UNDEF,
-	.park_break = STATE_UNDEF,
-	.low_washer = STATE_UNDEF,
-	.ds_belt = STATE_UNDEF,
+    .park_lights = STATE_UNDEF, // Light statuses unknown initially
+    .near_lights = STATE_UNDEF,
+    .park_break = STATE_UNDEF,  // Park brake status unknown initially
+    .low_washer = STATE_UNDEF,  // Low washer status unknown initially
+    .ds_belt = STATE_UNDEF,     // Seat belt status unknown initially
 
-	.odometer = 0,
-	.voltage = 0,
-	.low_voltage = STATE_UNDEF,
-	.temp = 0,
-	.fuel_lvl = 0,
-	.low_fuel_lvl = STATE_UNDEF,
+    .odometer = 0,              // Odometer starts at 0 (or could be STATE_UNDEF if 0 is valid reading)
+    .voltage = 0,               // Voltage starts at 0
+    .low_voltage = STATE_UNDEF, // Low voltage status unknown initially
+    .temp = 0,                  // Ambient temperature starts at 0 (or could be STATE_UNDEF)
+    .fuel_lvl = 0,              // Fuel level starts at 0
+    .low_fuel_lvl = STATE_UNDEF,// Low fuel status unknown initially
+    .engine_temp = 0,           // Engine coolant temp starts at 0 (or could be STATE_UNDEF)
+    .oil_temp = 0,              // Engine oil temp starts at 0 (or could be STATE_UNDEF)
 };
 
 typedef struct car_air_state_t
@@ -130,13 +130,13 @@ static car_air_state_t car_air_state =
 
 typedef struct key_state_t
 {
-	uint8_t key_volume;
-	uint8_t key_prev;
-	uint8_t key_next;
-	uint8_t key_mode;
-	uint8_t key_cont;
-	uint8_t key_navi;
-	uint8_t key_mici;
+    uint8_t key_volume;     // Previous state of Volume Up/Down (might track direction: 1=Up pressed, 0=Down pressed, STATE_UNDEF=released/unknown)
+    uint8_t key_prev;       // Previous state of Previous Track/Seek Down button (1=pressed, 0=released)
+    uint8_t key_next;       // Previous state of Next Track/Seek Up button (1=pressed, 0=released)
+    uint8_t key_mode;       // Previous state of Mode/Source button (1=pressed, 0=released)
+    uint8_t key_cont;       // Previous state of Phone Continue/Answer/Hangup button (1=pressed, 0=released)
+    uint8_t key_navi;       // Previous state of Navigation button (if applicable) (1=pressed, 0=released)
+    uint8_t key_mici;       // Previous state of Microphone/Voice Control button (1=pressed, 0=released)
 
 	struct key_cb_t * key_cb;
 } key_state_t;

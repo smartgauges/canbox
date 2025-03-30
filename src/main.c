@@ -35,14 +35,36 @@ static void rear_delay_process(uint8_t ticks)
 
 uint8_t get_rear_delay_state(void)
 {
-	uint8_t ign = car_get_ign();
-	if (!ign)
-		return 0;
+    uint8_t ign = car_get_ign();
+    if (!ign) {
+        // Reset delays if ignition goes off
+        rear_on_delay = 0;
+        rear_off_delay = MAX_REAR_DELAY; // Ensure it's considered OFF
+        return 0;
+    }
 
-	if ((rear_on_delay > rear_on_timeout) || (rear_off_delay < conf_get_rear_delay()))
-		return 1;
-	else
-		return 0;
+    if (car_get_selector() == e_selector_r) {
+        rear_on_delay += 1; // Assuming called every tick (1ms) - adjust if using ticks argument
+         if(rear_on_delay > rear_on_timeout * 2) rear_on_delay = rear_on_timeout * 2; // Prevent overflow
+        rear_off_delay = 0;
+    } else {
+         // Start rear_off_delay ONLY if we were recently ON
+        if (rear_on_delay >= rear_on_timeout) {
+             rear_off_delay = 1; // Start the off delay immediately
+        } else if (rear_off_delay > 0) { // Only increment if off-delay has started
+            rear_off_delay += 1; // Increment off-delay
+             if(rear_off_delay > conf_get_rear_delay() * 2) rear_off_delay = conf_get_rear_delay()*2; // Prevent overflow
+        }
+        rear_on_delay = 0; // Reset on-delay
+    }
+
+
+    // Determine final state based on delays
+    if (rear_on_delay >= rear_on_timeout || (rear_off_delay > 0 && rear_off_delay < conf_get_rear_delay())) {
+        return 1; // State is ON
+    } else {
+        return 0; // State is OFF
+    }
 }
 
 struct key_cb_t key_cb =
@@ -438,25 +460,21 @@ void print_debug(void)
 static void gpio_process(void)
 {
     uint8_t acc = car_get_acc();
-    // uint8_t ign = car_get_ign(); // Not directly used for GPIO pins here
+    // uint8_t ign = car_get_ign(); // IGN state not directly needed for GPIO here
 
-    // Get the *raw brightness level* stored in carstate.illum
-    uint8_t illum_brightness = car_get_illum();
-    // Read the 'lights enabled' bit directly from the last received message if needed,
-    // OR infer it from brightness > 0 (simpler approach first)
-    bool dashboard_lights_on = (illum_brightness > 0); // Simplistic check: lights on if brightness > 0
+    // --- Illumination Pin Control ---
+    // Directly use the last known state from the 0x036 handler
+    bool lights_pin_on = car_get_illum();
 
-    // More robust check might involve reading the enable bit if stored separately, e.g.:
-    // bool dashboard_lights_on = car_get_dashboard_lights_enabled(); // If you add such a getter
+    // Optional: Also require ACC to be ON for the ILL pin? Typically yes for head units.
+    lights_pin_on = lights_pin_on && acc;
 
     if (acc)
         hw_gpio_acc_on();
     else
         hw_gpio_acc_off();
 
-    // Control ILL pin based on whether dashboard lights are considered ON,
-    // potentially comparing brightness to a threshold if needed later.
-    if (dashboard_lights_on) // Turn ILL pin ON if dashboard lights are on
+    if (lights_pin_on)
         hw_gpio_ill_on();
     else
         hw_gpio_ill_off();
@@ -466,13 +484,14 @@ static void gpio_process(void)
     else
         hw_gpio_rear_off();
 
-    // PARK pin logic still needs Park Brake CAN message handler
-    uint8_t park_brake = car_get_park_break();
-     if (park_brake == 1) { // Assuming 1 means ON, 0 means OFF
-         hw_gpio_park_on(); // Or hw_gpio_park_off() depending on PARK signal logic (GND when ON?)
-     } else {
-         hw_gpio_park_off(); // Or hw_gpio_park_on()
-     }
+    // --- Park Pin Control ---
+    // (Assuming PARK signal logic is Ground when ON, High impedance when OFF)
+    uint8_t park_brake = car_get_park_break(); // Needs handler for the park brake CAN message
+    if (park_brake == 1) { // If Park Brake is ON
+        hw_gpio_park_on(); // Set pin LOW (Ground)
+    } else {
+        hw_gpio_park_off(); // Set pin HIGH/High-Z
+    }
 }
 
 uint8_t fmax_global[4] = { 10, 10, 10, 10 }; // Example global fmax/rmax, adjust as needed
