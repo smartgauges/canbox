@@ -41,6 +41,23 @@ typedef struct car_state_t
     uint8_t low_fuel_lvl;   // Low fuel level warning status (1 = Low, 0 = OK). STATE_UNDEF if unknown.
     int16_t engine_temp;    // Engine Coolant Temperature. Units: °C (Degrees Celsius). Can be negative.
     int16_t oil_temp;       // Engine Oil Temperature. Units: °C (Degrees Celsius). Can be negative.
+
+
+	uint16_t inst_consumption_raw; // Instantaneous consumption raw value from CAN (needs scaling)
+    uint8_t  inst_consumption_invalid; // Flag: 1 if consumption is invalid ("--.-")
+    uint16_t range_km;             // Distance To Empty (Range). Units: km.
+    uint8_t  range_invalid;        // Flag: 1 if range is invalid ("----")
+
+    // Placeholders for Trip 1 data (Values need to be populated from a TBD CAN ID)
+    uint16_t avg_speed1;           // Average Speed Trip 1. Units: km/h
+    uint16_t avg_consumption1_raw; // Average Consumption Trip 1 raw value (needs scaling)
+    uint32_t trip_distance1;       // Distance Trip 1. Units: km
+
+    // Placeholders for Trip 2 data (Values need to be populated from a TBD CAN ID)
+    uint16_t avg_speed2;           // Average Speed Trip 2. Units: km/h
+    uint16_t avg_consumption2_raw; // Average Consumption Trip 2 raw value (needs scaling)
+    uint32_t trip_distance2;       // Distance Trip 2. Units: km
+
 } car_state_t;
 
 // Initialize the global car state structure
@@ -79,6 +96,20 @@ static car_state_t carstate =
     .low_fuel_lvl = STATE_UNDEF,// Low fuel status unknown initially
     .engine_temp = 0,           // Engine coolant temp starts at 0 (or could be STATE_UNDEF)
     .oil_temp = 0,              // Engine oil temp starts at 0 (or could be STATE_UNDEF)
+
+	.inst_consumption_raw = 0,
+    .inst_consumption_invalid = 1, // Assume invalid initially
+    .range_km = 0,
+    .range_invalid = 1, // Assume invalid initially
+
+    .avg_speed1 = 0,
+    .avg_consumption1_raw = 0,
+    .trip_distance1 = 0,
+
+    .avg_speed2 = 0,
+    .avg_consumption2_raw = 0,
+    .trip_distance2 = 0,
+
 };
 
 typedef struct car_air_state_t

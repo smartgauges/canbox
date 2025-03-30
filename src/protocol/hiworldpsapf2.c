@@ -37,18 +37,6 @@ static uint8_t map_temperature_to_hiworld(uint8_t car_temp_val) {
     return hiworld_val;
 }
 
-// Helper to map radar distance (0-99 or 0-7 from car.c) to Hiworld (1-255)
-// Using the inverted scale logic: 1=closest, 255=farthest/inactive
-static uint8_t map_radar_distance_hiworld(uint8_t car_distance) {
-    // Assuming car_distance is 0-7 (based on peugeot_407.c handler)
-    // If it's 0-99, the scaling needs adjustment.
-    // 0 in car.c means closest, 7 means farthest/no object.
-    if (car_distance == 7) return 0xFF; // Map "farthest/no object" to 0xFF
-    // Map 0 (closest) to 1, and 6 (far) to a value less than 0xFF.
-    // Linear mapping: map 0-6 range to 1-250 range (inverted)
-    return 251 - (uint8_t)scale((float)car_distance, 0.0f, 6.0f, 1.0f, 250.0f);
-}
-
 
 // --- Protocol Implementation Functions ---
 
@@ -127,39 +115,60 @@ static void canbox_hiworld_psa_detailed_info_process(void) {
 }
 
 
-// ComID 0x31: Air Conditioning Information
+// Helper to map RAW PSA temp byte (0x00=LO, 0x01=14, ..., 0x1E=30, 0x1F=HI, 0xFF=Inv)
+// to Hiworld Temp Byte (0x00=LO, 0x01=14,... 0x20=30, 0xFE=HI, 0xFF=Inv/Sync)
+#define ID_0x1D0_TEMP_RAW_INVALID   0xFF
+#define ID_0x1D0_TEMP_RAW_LO        0x00
+#define ID_0x1D0_TEMP_RAW_HI        0x1F // Value corresponding to "HI"
+#define STATE_UNDEF 0xff
+
+static uint8_t map_psa_raw_temp_to_hiworld(uint8_t psa_raw_temp) {
+    if (psa_raw_temp == STATE_UNDEF || psa_raw_temp == ID_0x1D0_TEMP_RAW_INVALID) return 0xFF; // Invalid/Sync
+    if (psa_raw_temp == ID_0x1D0_TEMP_RAW_LO) return 0x00; // LO
+    if (psa_raw_temp == ID_0x1D0_TEMP_RAW_HI) return 0xFE; // HI
+    // Map 0x01 (14.0) to 0x1E (30.0) -> Hiworld 0x01 to 0x20 (32 steps)
+    // PSA Raw range 1..30 maps to Hiworld 1..32
+     if (psa_raw_temp >= 1 && psa_raw_temp <= 30) {
+         // PSA Raw 0x01 (14.0C) -> Hiworld 0x01
+         // PSA Raw 0x02 (14.5C) -> Hiworld 0x02
+         // ...
+         // PSA Raw 0x1E (30.0C) -> Hiworld 0x20 (32 decimal)
+         return psa_raw_temp; // Direct mapping seems correct for the numeric range 1-30 (0x01-0x1E) -> 1-32 (0x01-0x20)
+                              // Need to verify if PSA raw 0x1F maps to Hiworld 0xFE
+     }
+     // Fallback for unexpected PSA raw values
+     return 0xFF;
+}
+
+
 static void canbox_hiworld_psa_ac_process(void) {
     uint8_t data[7] = {0}; // LEN=0x08 -> 7 DATA bytes
 
-    uint8_t ac_on = car_get_air_ac(); // Assuming 1 means compressor on / system active
-
-    // Data 0
-    if (ac_on) data[0] |= 0x80; // AC System ON/OFF (Using AC Compressor status)
-    if (car_get_air_ac_max()) data[0] |= 0x40; // AC MAX Mode
-    if (car_get_air_recycling()) data[0] |= 0x20; // Recirculation (Manual/Auto based on Data 1 Bit 7)
-    if (car_get_air_dual()) data[0] |= 0x10; // Dual Zone Mode
-    // Bit 3 AUTO Mode - How to determine this? Maybe if fanspeed > 0 and AC is on? Needs logic.
-    // Let's assume if fan>0 and AC on, AUTO is conceptually active for the HU display
-    if (ac_on && car_get_air_fanspeed() > 0) data[0] |= 0x08; // AUTO mode (Assumption)
-    if (car_get_air_rear()) data[0] |= 0x04; // Rear Defrost
+    // --- Data 0 ---
+    uint8_t ac_on_state = car_get_air_ac(); // Use the value from car_air_state
+    if (ac_on_state) data[0] |= 0x80; // Bit 7: AC System ON/OFF (Based on AC compressor)
+    if (car_get_air_ac_max()) data[0] |= 0x40; // Bit 6: AC MAX Mode
+    if (car_get_air_recycling()) data[0] |= 0x20; // Bit 5: Recirculation
+    if (car_get_air_dual()) data[0] |= 0x10; // Bit 4: Dual Zone Mode
+    // Bit 3: AUTO Mode - Assuming ON if AC is ON and Fan > 0
+    if (ac_on_state && car_get_air_fanspeed() > 0) data[0] |= 0x08;
+    if (car_get_air_rear()) data[0] |= 0x04; // Bit 2: Rear Defrost
     // Bit 1 Reserved
-    if (ac_on) data[0] |= 0x01; // AC Compressor Status
+    if (ac_on_state) data[0] |= 0x01; // Bit 0: AC Compressor Status
 
-    // Data 1
-    if (car_get_air_aqs()) data[1] |= 0x80; // Auto Recirculation (AQS)
+    // --- Data 1 ---
+    if (car_get_air_aqs()) data[1] |= 0x80; // Bit 7: Auto Recirculation (AQS)
     // Bit 6 Reserved
-    uint8_t fanspeed = car_get_air_fanspeed(); // Assuming 0-7 range
-    if (fanspeed > 7) fanspeed = 7;
-    data[1] |= (fanspeed & 0x07) << 3; // Fan Speed (Bits 5-3)
-    if (car_get_air_floor()) data[1] |= 0x04; // Airflow: Floor
-    if (car_get_air_middle()) data[1] |= 0x02; // Airflow: Face/Mid
-    if (car_get_air_wind()) data[1] |= 0x01; // Airflow: Windshield
+    uint8_t fanspeed = car_get_air_fanspeed(); // Get 0-7 value
+    if(fanspeed > 7) fanspeed = 7; // Clamp
+    data[1] |= (fanspeed & 0x07) << 3; // Bits 5-3: Fan Speed
+    if (car_get_air_floor()) data[1] |= 0x04; // Bit 2: Airflow Floor
+    if (car_get_air_middle()) data[1] |= 0x02; // Bit 1: Airflow Face/Mid
+    if (car_get_air_wind()) data[1] |= 0x01; // Bit 0: Airflow Windshield
 
-    // Data 2: Left Temperature
-    data[2] = map_temperature_to_hiworld(car_get_air_l_temp());
-
-    // Data 3: Right Temperature
-    data[3] = map_temperature_to_hiworld(car_get_air_r_temp());
+    // --- Data 2 & 3: Temperatures ---
+    data[2] = map_psa_raw_temp_to_hiworld(car_get_air_l_temp()); // Map stored PSA raw value
+    data[3] = map_psa_raw_temp_to_hiworld(car_get_air_r_temp()); // Map stored PSA raw value
 
     // Data 4-6: Reserved
     data[4] = 0x00;
@@ -169,23 +178,56 @@ static void canbox_hiworld_psa_ac_process(void) {
     snd_canbox_hiworld_msg(0x31, data, sizeof(data));
 }
 
+// Helper to map radar distance (0-7 from car.c) to Hiworld (1-255)
+// Using the inverted scale logic: 1=closest, 255=farthest/inactive
+static uint8_t map_radar_distance_hiworld(uint8_t car_distance_0_7) {
+    // Ensure input is within expected range
+    if (car_distance_0_7 > 7) {
+        car_distance_0_7 = 7;
+    }
+
+    if (car_distance_0_7 == 7) {
+        return 0xFF; // 7 maps to farthest/inactive
+    } else {
+        // Map 0 (closest) -> 1
+        // Map 6 (far) -> 250 (approx, using linear scaling)
+        // Inverted scale: Higher value means further away.
+        // Scale 0-6 linearly onto 1-250
+        // Using float for intermediate calculation for better scaling
+        float scaled = scale((float)car_distance_0_7, 0.0f, 6.0f, 1.0f, 250.0f);
+        // Invert the scale for Hiworld (1=closest, 250=far)
+        return (uint8_t)(251.0f - scaled);
+        // Example:
+        // Input 0 -> scale=1.0 -> result = 250
+        // Input 3 -> scale=125.5 -> result = 126
+        // Input 6 -> scale=250.0 -> result = 1
+    }
+     // Fallback/error case - should not happen if input is 0-7
+    // return 0xFF;
+}
+
+
 // ComID 0x41: Radar (Parking Sensor) Information
 static void canbox_hiworld_psa_radar_process(uint8_t fmax[4], uint8_t rmax[4]) {
-    // fmax/rmax are not used in this protocol's radar message structure
-    (void)fmax;
+    (void)fmax; // Not used by Hiworld PSA radar format
     (void)rmax;
 
     struct radar_t radar;
-    car_get_radar(&radar);
+    car_get_radar(&radar); // Get the latest radar state
 
-    uint8_t data[12] = {0xFF}; // LEN=0x0D -> 12 DATA bytes. Default to 0xFF (inactive/far)
+    // Don't send if the radar state is undefined (e.g., after startup before first message)
+    if (radar.state == e_radar_undef) {
+        return;
+    }
 
-    // Map distances (0=closest, 7=farthest/off -> 1=closest, 255=farthest/off)
+    uint8_t data[12]; // LEN=0x0D -> 12 DATA bytes.
+
+    // Map distances (0=closest, 7=farthest -> 1=closest, 255=farthest)
     data[0] = map_radar_distance_hiworld(radar.rl);
     data[1] = map_radar_distance_hiworld(radar.rlm);
     data[2] = map_radar_distance_hiworld(radar.rrm);
     data[3] = map_radar_distance_hiworld(radar.rr);
-    data[4] = map_radar_distance_hiworld(radar.fr); // Order is FR, FRM, FLM, FL in doc
+    data[4] = map_radar_distance_hiworld(radar.fr);
     data[5] = map_radar_distance_hiworld(radar.frm);
     data[6] = map_radar_distance_hiworld(radar.flm);
     data[7] = map_radar_distance_hiworld(radar.fl);
@@ -198,28 +240,32 @@ static void canbox_hiworld_psa_radar_process(uint8_t fmax[4], uint8_t rmax[4]) {
     // Byte 11: Parking System Status
     switch (radar.state) {
         case e_radar_off:
-        case e_radar_undef:
             data[11] = 0x00; // OFF
+            // Ensure all distances show inactive when system is off
+            memset(data, 0xFF, 8); // Set first 8 bytes (distances) to 0xFF
             break;
         case e_radar_on_rear:
             data[11] = 0x10; // Rear ON
+             // Optionally clear front sensors if only rear is active? Test HU behavior.
+             // data[4]=0xFF; data[5]=0xFF; data[6]=0xFF; data[7]=0xFF;
             break;
         case e_radar_on_front:
             data[11] = 0x20; // Front ON
+             // Optionally clear rear sensors if only front is active? Test HU behavior.
+             // data[0]=0xFF; data[1]=0xFF; data[2]=0xFF; data[3]=0xFF;
             break;
         case e_radar_on: // Both implicitly
             data[11] = 0x30; // Front & Rear ON
             break;
-        default:
-             data[11] = 0x00; // OFF
+        // case e_radar_undef: // Handled above, don't send anything
+        default: // Should not happen
+             data[11] = 0x00;
+             memset(data, 0xFF, 8);
              break;
-
     }
 
-    // Only send if the system is not OFF (to avoid spamming 0xFFs unnecessarily?)
-    // Or maybe always send to explicitly turn off the display? Let's send always for now.
-     snd_canbox_hiworld_msg(0x41, data, sizeof(data));
-
+    // Send the message regardless of ON/OFF state to ensure display clears correctly
+    snd_canbox_hiworld_msg(0x41, data, sizeof(data));
 }
 
 // --- Button Handler Wrappers (Translate car events to Hiworld ComID 0x21) ---
