@@ -321,6 +321,9 @@ void print_debug(void)
 		case e_cb_hiworld_vw_mqb:
 			scb = "HiWorld VW(MQB)";
 			break;
+		case e_cb_hiworld_psa_pf2:
+			scb = "Hiworld PSA(PF2)";
+			break;
 
 		default:
 			break;

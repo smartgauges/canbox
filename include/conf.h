@@ -25,6 +25,7 @@ enum e_canbox_t
 	e_cb_raise_vw_mqb,
 	e_cb_od_bmw_nbt_evo,
 	e_cb_hiworld_vw_mqb,
+	e_cb_hiworld_psa_pf2,
 	e_cb_nums,
 };
 
