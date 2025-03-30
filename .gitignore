@@ -5,3 +5,6 @@
 .vscode/ipch
 logs
 **/__pycache__/
+log.html
+output.xml
+report.html
