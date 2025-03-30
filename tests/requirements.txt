@@ -1,0 +1,11 @@
+# requirements.txt
+
+python-can
+future==1.0.0
+iso8601==2.1.0
+psutil==5.9.3
+PyYAML==6.0.2
+robotframework==6.1
+robotframework-retryfailed==0.2.0
+pyserial
+telnetlib3==2.0.4

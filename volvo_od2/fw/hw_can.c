@@ -18,7 +18,7 @@ typedef struct speed_t
 
 #if 0
 /* APB1 36 MHz 87.5% sjw=1 */
-static speed_t speeds[e_speed_nums] = 
+static speed_t speeds[e_speed_nums] =
 {
 	{ CAN_BTR_SJW_1TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 22 },
 	{ CAN_BTR_SJW_1TQ, CAN_BTR_TS1_13TQ, CAN_BTR_TS2_2TQ, 18 },
@@ -45,7 +45,8 @@ typedef struct can_t
 	uint32_t baddr;
 	uint8_t fid;
 
-	uint32_t irq;
+	uint32_t irq_rx;
+	uint32_t irq_tx;
 
 	struct gpio_t tx;
 	struct gpio_t rx;
@@ -60,7 +61,8 @@ static struct can_t can1 =
 {
 	.rcc = RCC_CAN,
 	.baddr = CAN1,
-	.irq = NVIC_USB_LP_CAN_RX0_IRQ,
+	.irq_rx = NVIC_USB_LP_CAN_RX0_IRQ, // Correct IRQ for RX0
+    .irq_tx = NVIC_USB_HP_CAN_TX_IRQ, // Correct IRQ for TX
 	.fid = 0,
 	.tx = GPIO_INIT(A, 12),
 	.rx = GPIO_INIT(A, 11),
@@ -78,44 +80,51 @@ struct can_t * hw_can_get_mscan(void)
 
 uint8_t hw_can_set_speed(struct can_t * can, e_speed_t speed)
 {
-	nvic_disable_irq(can->irq);
-	can_disable_irq(can->baddr, CAN_IER_FMPIE0);
+    // Disable interrupts during configuration
+    nvic_disable_irq(can->irq_rx);
+    nvic_disable_irq(can->irq_tx); // Disable TX interrupt as well
+    can_disable_irq(can->baddr, CAN_IER_FMPIE0); // Disable FIFO0 message pending interrupt
 
-	/* Reset CAN. */
-	can_reset(can->baddr);
+    /* Reset CAN. */
+    can_reset(can->baddr);
 
-	/* CAN cell init. apb1 36 MHZ */
-	int ret = can_init(can->baddr,
-		     false,           /* TTCM: Time triggered comm mode? */
-		     true,            /* ABOM: Automatic bus-off management? */
-		     false,           /* AWUM: Automatic wakeup mode? */
-		     false,           /* NART: No automatic retransmission? */
-		     false,           /* RFLM: Receive FIFO locked mode? */
-		     false,           /* TXFP: Transmit FIFO priority? */
-		     speeds[speed].sjw,
-		     speeds[speed].ts1,
-		     speeds[speed].ts2,
-		     speeds[speed].brp,
-		     false,
-		     false
-		     );
+    /* CAN cell init. apb1 36 MHZ */ // Your clock configuration
+    int ret = can_init(can->baddr,
+             false,           /* TTCM: Time triggered comm mode? */
+             true,            /* ABOM: Automatic bus-off management? */
+             false,           /* AWUM: Automatic wakeup mode? */
+             false,           /* NART: No automatic retransmission? */
+             false,           /* RFLM: Receive FIFO locked mode? */
+             false,           /* TXFP: Transmit FIFO priority? */
+             speeds[speed].sjw,
+             speeds[speed].ts1,
+             speeds[speed].ts2,
+             speeds[speed].brp,
+             false, // loopback
+             false  // silent
+             );
 
-	if (ret)
-		return ret;
+    if (ret) {
+        return ret; // Return if can_init failed
+    }
 
-	/* CAN filter 0 init. */
+
+    // Accept all messages for initial testing.  Change this later for filtering.
 	can_filter_id_mask_32bit_init(
 				0,     /* Filter ID */
 				0,     /* CAN ID */
-				0,     /* CAN ID mask */
+				0,     /* CAN ID mask */ //Accept all
 				0,    /* FIFO assignment (here: FIFO0) */
 				true); /* Enable the filter. */
 
-	/* Enable CAN RX interrupt. */
-	can_enable_irq(can->baddr, CAN_IER_FMPIE0);
-	nvic_enable_irq(can->irq);
 
-	return 0;
+	// Enable *both* RX0 *and* TX interrupts.
+    can_enable_irq(can->baddr, CAN_IER_FMPIE0 | CAN_IER_TMEIE); // Enable FIFO0 *and* Transmit Mailbox Empty interrupts
+    nvic_enable_irq(can->irq_rx); // Enable RX0 interrupt in NVIC
+    nvic_enable_irq(can->irq_tx); // Enable TX interrupt in NVIC
+
+
+    return 0;
 }
 
 enum e_can_types
@@ -149,16 +158,21 @@ uint8_t hw_can_setup(struct can_t * can, e_speed_t speed)
 	gpio_set(can->s.port, can->s.pin);
 	gpio_set_mode(can->s.port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, can->s.pin);
 
-	/* NVIC setup. */
-	nvic_enable_irq(can->irq);
-	nvic_set_priority(can->irq, 1);
+
+    // Set interrupt priorities.
+	nvic_enable_irq(can->irq_rx);
+    nvic_set_priority(can->irq_rx, 1); // Set priority for RX0 interrupt
+    
+	nvic_enable_irq(can->irq_tx);
+	nvic_set_priority(can->irq_tx, 1); // Set priority for TX interrupt
 
 	return hw_can_set_speed(can, speed);
 }
 
 void hw_can_disable(struct can_t * can)
 {
-	nvic_disable_irq(can->irq);
+	nvic_disable_irq(can->irq_rx);
+    nvic_disable_irq(can->irq_tx);
 
 	rcc_periph_clock_enable(can->rcc);
 	can_reset(can->baddr);
@@ -222,12 +236,12 @@ static void can_isr(struct can_t * can)
 	can->nums++;
 
 	uint8_t found = 0;
-	for (i = 0; i < can->msgs_size; i++) {
+	for (uint8_t i = 0; i < can->msgs_size; i++) {
 
 		if (can->msgs[i].id == msg.id) {
 
 			can->msgs[i].len = msg.len;
-			for (j = 0; j < 8; j++)
+			for (uint8_t j = 0; j < 8; j++)
 				can->msgs[i].data[j] = msg.data[j];
 			can->msgs[i].num++;
 			found = 1;
@@ -243,11 +257,34 @@ static void can_isr(struct can_t * can)
 	}
 
 	can_fifo_release(can->baddr, 0);
+	CAN_RF0R(CAN1) |= CAN_RF0R_RFOM0; // Release FIFO 0 output mailbox
+
 }
 
 void usb_lp_can_rx0_isr(void)
 {
 	can_isr(hw_can_get_mscan());
+}
+
+// Add the TX interrupt handler
+void usb_hp_can_tx_isr(void) {
+    // Clear the transmit interrupt flag.  The specific register and bit
+    // depend on *which* transmit mailbox caused the interrupt.  You
+    // *must* check the status register (TSR) to determine this.
+    if(CAN_TSR(CAN1) & CAN_TSR_RQCP0){
+        // Transmission request for mailbox 0 completed. Clear the flags.
+        CAN_TSR(CAN1) |= CAN_TSR_RQCP0; // Clear Request Complete Mailbox 0
+
+    }
+    if(CAN_TSR(CAN1) & CAN_TSR_RQCP1){
+        // Transmission request for mailbox 1 completed. Clear the flags.
+        CAN_TSR(CAN1) |= CAN_TSR_RQCP1; // Clear Request Complete Mailbox 1
+    }
+    if(CAN_TSR(CAN1) & CAN_TSR_RQCP2){
+        // Transmission request for mailbox 2 completed. Clear the flags.
+        CAN_TSR(CAN1) |= CAN_TSR_RQCP2; // Clear Request Complete Mailbox 2
+    }
+    // Handle other potential transmit interrupt sources (TERR, ALST) if needed.
 }
 
 void hw_can_snd_msg(struct can_t * can, struct msg_can_t * msg)

@@ -1,0 +1,294 @@
+CAN ID: 0x0B6 (Engine Status and Coolant Temp)
+    Source: peugeot407can.yaml, PSACAN.md, fazerxlo/simulator, canbox-407
+    Signals:
+        - Engine Coolant Temperature:
+            Bytes: 5
+            Mask:  0xFF (all bits of byte 5)
+            Shift: None (use the byte directly)
+            Factor: 0.75
+            Offset: -48
+            Units: °C
+            Source: peugeot407can.yaml, fazerxlo/simulator
+        - Ignition State:
+            Bytes: 0
+            Mask:  0x07 (bits 0-2)
+            Shift: None
+            States: (Placeholder - Verify!)
+                0: OFF
+                2: ACC
+                6: ON
+            Source: peugeot407can.yaml, canbox-407, PSACAN.md (partially)
+        - Dashboard lighting:
+            Bytes: 0
+            Mask: 0x40 (bit 6)
+            Shift: None
+            States:
+                0: Dashboard lighting disabled.
+                1: Dashboard lighting enabled
+        - Economy mode enabled:
+             Bytes: 0
+             Mask: 0x0E
+             Shift: None
+             States:
+                0: disabled.
+                1: enabled
+
+CAN ID: 0x0E1 (Parking Sensors - Parktronic)
+    Source: PSACAN.md, fazerxlo/simulator (indirectly), canbox-407
+    Signals:
+        - Front Left Sensor:
+            Bytes: 3
+            Mask:  0x0E  (bits 3-1)
+            Shift: Right shift 1
+            Range: 0-7 (0 = closest, 7 = no object/farthest)
+        - Front Left Middle Sensor:
+            Bytes: 3, 4
+            Mask:  0x04 (bit 0 of byte 3) and 0xC0 (bits 7-6 of byte4)
+            Shift: Left shift byte 3 and right shift byte 4
+            Range: 0-7
+        - Front Right Middle Sensor:
+            Bytes: 4
+            Mask:  0x38 (bits 5-3)
+            Shift: Right shift 3.
+            Range: 0-7
+        - Front Right Sensor:
+            Bytes: 4
+            Mask:  0x07 (bits 2-0)
+            Shift: None
+            Range: 0-7
+        - Rear Left Sensor:
+            Bytes: 2
+            Mask:  0xE0 (bits 7-5)
+            Shift: Right shift 5
+            Range: 0-7
+        - Rear Left Middle Sensor:
+            Bytes: 2
+            Mask:  0x1C (bits 4-2)
+            Shift: Right shift 2
+            Range: 0-7
+        - Rear Right Middle Sensor:
+            Bytes: 2,3
+            Mask:  0x03 (bit 1-0 of byte 2) and 0x80 (bit 7 of byte 3)
+            Shift: Left Shift byte 2, right shift byte 3.
+            Range: 0-7
+        - Rear Right Sensor:
+            Bytes: 3
+            Mask:  0x70 (bits 6-4)
+            Shift: Right shift 4.
+            Range: 0-7
+        - Parktronic Active:
+            Bytes: 5
+            Mask: 0x01
+            Shift: None
+            States:
+                0x00: Inactive
+                0x01: Active
+        - Front/Rear/Both Indication (in combination with active flag):
+            Bytes: 1
+            Mask: 0x70 // Check bits 4, 5 and 6
+            Shift: None
+            States (Needs verification):
+                Bit 4 (0x10): Front active
+                Bit 5 (0x20): Both Front and Rear?
+                Bit 6 (0x40): Rear active
+
+
+CAN ID: 0x126 (Steering Wheel Controls, Horn)
+    Source: peugeot407can.yaml (initial), fazerxlo/simulator (for confirmation)
+    Signals:
+        - Horn:
+           Bytes: 1
+           Mask: 0x01 (bit 0)
+           Shift: None
+           States:
+               0: Off
+               1: On
+
+CAN ID: 0x128 (Wipers, Lights, Turn Signals)
+    Source: peugeot407can.yaml (initial), PSACAN.md
+    Signals:
+      - Wiper_State:
+        Bytes: 0
+        Mask: 0xFF
+        Shift: None
+        States: Need to be determined.
+        Source: peugeot407can.yaml
+      - Headlight_Status:
+        Bytes: 1
+        Mask: 0xFF
+        Shift: None
+        States: Need to be determined
+        Source: peugeot407can.yaml
+      - Turn_Signal_Left:
+         Bytes: 2
+         Mask: 0x01
+         Shift: None
+         States:
+             0: "Off"
+             1: "On"
+        Source: peugeot407can.yaml
+      - Turn_Signal_Right:
+          Bytes: 2
+          Mask: 0x02
+          Shift: Right shift 1 bit.
+          States:
+             0: "Off"
+             1: "On"
+       Source: peugeot407can.yaml
+      - Seat belt:
+        Bytes: 1, 2
+        Mask: Various, see PSACAN.md
+        Shift: See PSACAN.md
+        States: See PSACAN.md
+        Source: PSACAN.md (provides detailed bit assignments)
+
+CAN ID: 0x131 (Doors and Fuel Level)
+    Source: peugeot407can.yaml, fazerxlo/simulator (fuel level details)
+    Signals:
+        - Fuel Level:
+            Bytes: 0
+            Mask:  0xFF  (Use all bits of byte 0 initially)
+            Shift: None
+            Factor: (To be determined - see notes below)
+            Offset: (To be determined)
+            Units:  (Likely liters or percentage - determine)
+            Source: peugeot407can.yaml, fazerxlo/simulator (for calculation)
+            Notes:  The *raw value* is in byte 0.  The *final calculation* of the fuel level in percent, according to `PSAVanCanBridge`, involves:
+                    `fuel_level = (msg[3] >> 2) & 0x3F;`  // Extract 6 bits.
+                    `max_fuel    = (msg[3] >> 1) & 0x7F;`  // Extract 7 bits.
+                    `if (max_fuel != 0) { fuel_percent =  (uint8_t)(((uint32_t)fuel_level * 100) / max_fuel); }`
+                    You'll need to verify this on your vehicle.
+        - Door FL:
+            Bytes: 1
+            Mask: 0x01 (bit 0)
+            Shift: None
+            States:
+                0: Closed
+                1: Open
+        - Door FR:
+            Bytes: 1
+            Mask: 0x02 (bit 1)
+            Shift: Right shift 1.
+            States:
+                0: Closed
+                1: Open
+        - Door RL:
+            Bytes: 1
+            Mask: 0x04 (bit 2)
+            Shift: Right shift 2.
+            States:
+                0: Closed
+                1: Open
+        - Door RR:
+            Bytes: 1
+            Mask: 0x08 (bit 3)
+            Shift: Right shift 3.
+            States:
+                0: Closed
+                1: Open
+        - Bonnet (Hood):  *Assuming* this is part of 0x131 (Needs Verification)
+            Bytes: 1  (Placeholder - Needs Verification)
+            Mask:  0x10 (Placeholder - Needs Verification, bit 4)
+            Shift: Right shift 4
+            States:
+                0: Closed
+                1: Open
+        - Tailgate (Trunk): *Assuming* this is part of 0x131 (Needs Verification)
+            Bytes: 1 (Placeholder - Needs Verification)
+            Mask: 0x20 (Placeholder - Needs Verification, bit 5)
+            Shift: Right shift 5.
+            States:
+                0: Closed
+                1: Open
+
+CAN ID: 0x14C (Vehicle Speed and Odometer) and 0x28C (Duplicated)
+    Source: peugeot407can.yaml, fazerxlo/simulator, PSACAN.md
+    Signals:
+        - Vehicle Speed:
+            Bytes: 0, 1 (Big Endian)
+            Mask:  0xFFFF
+            Shift: None
+            Factor: 0.01
+            Units: km/h
+            Source: fazerxlo/simulator, peugeot407can.yaml
+        - Odometer:
+            Bytes: 1, 2, 3
+            Mask:  0xFFFFFF
+            Shift: None
+            Factor: 1
+            Units: km
+            Source: fazerxlo/simulator, peugeot407can.yaml
+            Notes: The byte order needs to be verified, it is possible it is not a simple Big Endian 24 bit value.
+    0x28C has duplicated data.
+
+CAN ID: 0x161 (Oil Temperature and Fuel Level Details)
+    Source: PSAVanCanBridge (C header file)
+    Signals:
+        - Oil Temperature:
+            Bytes: 2
+            Mask:  0xFF
+            Shift: None
+            Factor: 1.0
+            Offset: 40
+            Units: °C
+        - Fuel Level (Raw):
+            Bytes: 3
+            Mask:  0xFF  (Initially, use all bits)
+            Shift: None
+            Notes: See detailed explanation in 0x131 handler. Requires further calculation.
+        - Fuel Level Max (for percentage calculation):
+            Bytes: 3
+            Mask: 0xFE
+            Shift: Right shift 1
+            Notes: See detailed explanation in 0x131 handler
+
+CAN ID: 0x165 (Unknown, possibly related to Radio/Media)
+    Source: peugeot407can.yaml
+    Signals:
+        - Unknown_Signal_1:  Needs investigation
+        - Unknown_Signal_2:  Needs investigation
+    Notes: You've included this in your `peugeot407.c`, but the signals are unknown.  Needs reverse engineering.
+
+CAN ID: 0x168 (Outside Temperature and Battery Voltage)
+    Source: peugeot407can.yaml, fazerxlo/simulator
+    Signals:
+        - Outside Temperature:
+            Bytes: 0
+            Mask:  0xFF
+            Shift: None
+            Factor: 0.1
+            Offset: -40
+            Units: °C
+            Source: fazerxlo/simulator, peugeot407can.yaml
+        - Battery Voltage:
+            Bytes: 1
+            Mask:  0xFF
+            Shift: None
+            Factor: 0.1
+            Units: V
+            Source: fazerxlo/simulator, peugeot407can.yaml
+
+CAN ID: 0x1E1 (Unknown Signals)
+    Source: peugeot407can.yaml
+    Signals: All unknown. Requires reverse engineering.
+
+CAN ID: 0x1E5 (Unknown Signals)
+     Source: peugeot407can.yaml
+     Signals: All unknown. Requires reverse engineering.
+
+CAN ID: 0x260, 0x261 (Climate Control - Not Yet Implemented)
+	Source: peugeot407can.yaml
+    Signals:
+    * Many unknown signals.  You've included placeholders in `peugeot407can.yaml`, but no handler functions.
+    * Need to be investigated using CAN logs.  The `PSACAN.md` might offer some clues.
+    Notes:  You'll need to create separate handler functions for these IDs (e.g., `peugeot_407_ms_260_handler`, `peugeot_407_ms_261_handler`) and add them to the `peugeot_407_ms` array.
+
+CAN ID: 0x2B6 (Radio Station Name - ASCII)
+    Source: peugeot407can.yaml
+    Signals:  8 ASCII characters (Bytes 0-7)
+    Notes:  You have included placeholders for this in your `peugeot407can.yaml`, but it's not used in the C code yet.  You'll need to create a handler and likely store this data in a separate string buffer in `carstate`.
+
+CAN ID: 0x3B6 (Head Unit String 1 - ASCII)
+    Source: peugeot407can.yaml
+    Signals: 8 ASCII characters (Bytes 0-7)
+    Notes: You have included placeholders for this in your `peugeot407can.yaml`, but no C code implementation.

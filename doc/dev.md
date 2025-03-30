@@ -77,6 +77,8 @@ The firmware is structured in a modular way to facilitate adding support for new
     *   `msg_desc_t` structures:  These structures describe the CAN messages to be monitored, their IDs, periods, and handler functions.
     *   Handler functions:  These functions are called when a matching CAN message is received.  They decode the data from the CAN message and update the `carstate` structure with the relevant vehicle information (e.g., speed, gear, door status).
 
+*   **`protocol/`**: This directory contains files that are *specific to headunit communication protocols*. Each protocol has its own subdirectory (e.g., `raisepq`, `raisemqb`, `bmwnbevo`, `hiworldmqb`). These directories contain `.c` and `.h` files which implement the protocol logic.  `interface.h` defines the common interface used by `canbox.c` to interact with these protocol implementations.
+
 *   **`qemu/`, `volvo_od2/`, `vw_nc03/`**: These directories contain platform-specific files (e.g., linker scripts, hardware initialization code) for QEMU, the Volvo OD2 adapter, and the VW NC03 adapter, respectively.
 
 *   **`libopencm3/`**:  This directory contains the libopencm3 library, which provides low-level hardware access for STM32 microcontrollers.  The `include/` directory contains headers, and the `lib/` directory contains compiled libraries.
@@ -108,6 +110,9 @@ The project uses Makefiles for building and flashing the firmware.
     *   `make flash_vw_nc03`: Flashes the firmware to a Raise VW NC03 adapter using OpenOCD.  Requires an ST-Link V2 programmer.
     *   `make flash_volvo_od2`: Flashes the firmware to a Raise Volvo OD2 adapter using OpenOCD. Requires an ST-Link V2 programmer.
 
+**Building with PlatformIO**
+*   Follow the instructions in `README.md` to build the firmware using PlatformIO and VS Code.
+
 **QEMU Emulation:**
 
 *   **Build for QEMU:** `make qemu`
@@ -116,15 +121,11 @@ The project uses Makefiles for building and flashing the firmware.
     1.  Start QEMU in debug mode (with `-S -s` options) in one terminal:
 
         ```bash
-        qemu-system-arm -M stm32-p103 -kernel firmware.elf -nographic -S -s
-        ```
-        or
-        ```
-        make run_qemu 
+        qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf
         ```
     2.  Start a GDB session in another terminal:
         ```bash
-        arm-none-eabi-gdb firmware.elf
+        arm-none-eabi-gdb .pio/build/qemu/firmware.elf
         ```
     3.  Connect GDB to QEMU:
         ```
@@ -142,7 +143,7 @@ This section provides more in-depth descriptions of the key source files.
     *   Initializes the vehicle-specific logic using `car_init()`.
     *   Enters the main loop, which:
         *   Calls `gpio_process()` to update output signals (ACC, ILLUM, REAR, PARK).
-        *   Calls `usart_process()` to handle serial communication with the head unit.
+        *   Calls `usart_process()` to handle serial communication, including dispatching commands to `canbox_process()`.
         *   Periodically (based on timer flags) calls `car_process()` to update vehicle state and `canbox_park_process()`/`canbox_process()` to send data to the head unit.
         *   Handles sleep mode entry.
     *    `rear_delay_process`: Implements logic for delays of reverse gear
@@ -153,7 +154,7 @@ This section provides more in-depth descriptions of the key source files.
 
 *   **`canbox.c`, `canbox.h`**:
     *   `canbox_checksum()`: Calculates a simple checksum for CANBUS messages.
-    *   `snd_canbox_msg()`: Sends a CANBUS message to the head unit (over UART).
+    *   `snd_canbox_msg()`: Sends a CANBUS message to the head unit (over UART) using the selected protocol's format.
     *   `canbox_process()`: The main processing function for head unit communication. This is called periodically and handles sending data to the head unit according to the selected protocol.  It calls functions like `canbox_raise_vw_wheel_process()`, `canbox_raise_vw_door_process()`, etc. to prepare the data to be sent.
     *   `canbox_park_process()`: Similar to `canbox_process()`, but specifically for radar data (parking sensors).
     *   `canbox_cmd_process()`: Handles commands received from the head unit (in Raise/Hiworld protocol format).
@@ -217,8 +218,13 @@ This section provides more in-depth descriptions of the key source files.
      *   `_sbrk_r()`: Implements the `sbrk` system call, which is used by `malloc` to allocate memory on the heap.
      *   `__initialize_args()`:  A weak function that can be overridden to provide command-line arguments to the program (used for semihosting).
 
-*   **`cars/*.c`**:  Car-specific CAN message handling.  These files contain the logic to decode CAN messages from specific vehicle models.
-*   **`Makefile*`**: The makefiles
+*   **`protocol/*.c`, `protocol/*.h`**: These files implement the different CANBUS protocols emulated by the CAN box (e.g., Raise VW PQ, Raise VW MQB, Audi BMW NBT Evo, HiWorld VW MQB). They define functions for formatting CAN messages according to each protocol's specifications and handling commands received from the head unit.  `interface.h` defines a common function signature structure (`protocol_ops_t`) to ensure `canbox.c` can interact with each protocol implementation in a consistent manner.
+
+*   **`protocol/interface.h`**: Defines the `protocol_ops_t` structure, which serves as the interface for all emulated CANBUS protocols. This structure contains function pointers for key operations like radar processing, wheel data handling, door status updates, volume control, and command processing.  This interface allows `canbox.c` to call protocol-specific functions without needing to know the details of each protocol's implementation.
+
+ *   **`cars/*.c`**:  Car-specific CAN message handling.  These files contain the logic to decode CAN messages from specific vehicle models.
+
+ *   **`Makefile*`**: The makefiles
 
 ## Key Concepts
 
@@ -347,6 +353,37 @@ The following tasks are defined:
 }
 
 ```
+
+### Viewing Raw Serial Output from QEMU
+To observe the raw, hexadecimal output from the QEMU's emulated serial
+port (useful for debugging the emulated head unit protocols), use the following
+command. This uses `xxd` to format
+the output:
+
+```
+qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf -serial stdio -display none | xxd -c 12
+```
+
+This command pipes the standard output of QEMU (which includes the serial data) to `xxd`. 
+
+The `-c 12` option tells `xxd` to format the output with `12 hex bytes` per line, which is a convenient width for viewing CAN messages.  
+
+You will see the raw bytes being sent by the canbox firmware, including both debug messages (if enabled) and the emulated protocol messages. Use this to verify correct message formatting and data encoding before connecting to a physical CAN bus.
+
+Sample output:
+
+```
+00000000: 5aa5 0712 0000 0000 0000 0018  Z...........
+0000000c: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000018: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000024: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000030: 5aa5 0712 0000 0000 0000 0018  Z...........
+0000003c: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000048: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000054: 5aa5 0712 0000 0000 0000 0018  Z...........
+00000060: 5aa5 0712 0000 0000 0000 0018  Z...........
+```
+
 
 ### How to Use the VS Code Debugger
 

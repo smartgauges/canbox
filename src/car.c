@@ -3,18 +3,7 @@
 #include "hw.h"
 #include "hw_can.h"
 #include "car.h"
-
-#define USE_LR2_2007MY
-#define USE_LR2_2013MY
-#define USE_XC90_2007MY
-#define USE_SKODA_FABIA
-#define USE_Q3_2015
-#define USE_TOYOTA_PREMIO_26X
-
-static float scale(float value, float in_min, float in_max, float out_min, float out_max)
-{
-	return (((value - in_min) * (out_max - out_min)) / (in_max - in_min)) + out_min;
-}
+#include "protocol/interface.h" // Include the protocol interface header
 
 #define STATE_UNDEF 0xff
 typedef struct car_state_t
@@ -50,9 +39,11 @@ typedef struct car_state_t
 	uint32_t odometer;
 	uint32_t voltage;
 	uint8_t low_voltage;
-	uint32_t temp;
+	int16_t temp;      // Changed from uint32_t, since it can be negative
 	uint8_t fuel_lvl;
 	uint8_t low_fuel_lvl;
+    int16_t engine_temp;   // New Member
+	int16_t oil_temp;
 } car_state_t;
 
 static car_state_t carstate =
@@ -211,6 +202,10 @@ struct msg_desc_t anymsg_desc[] =
 #include "cars/lr2_2013my.c"
 #endif
 
+#ifdef USE_PEUGEOT_407
+#include "cars/peugeot_407.c"
+#endif
+
 #ifdef USE_XC90_2007MY
 #include "cars/xc90_2007my.c"
 #endif
@@ -345,6 +340,11 @@ void car_process(uint8_t ticks)
 		case e_car_lr2_2013my:
 #ifdef USE_LR2_2013MY
 			in_process(can, ticks, lr2_2013my_ms, sizeof(lr2_2013my_ms)/sizeof(lr2_2013my_ms[0]));
+#endif
+break;
+		case e_car_peugeot_407:
+#ifdef USE_PEUGEOT_407
+			in_process(can, ticks, peugeot_407_ms, sizeof(peugeot_407_ms)/sizeof(peugeot_407_ms[0]));
 #endif
 			break;
 		case e_car_xc90_2007my:
@@ -711,5 +711,9 @@ uint8_t car_get_air_r_seat(void)
 		return 0;
 
 	return car_air_state.r_seat;
+}
+
+int16_t car_get_engine_temp(void) {
+    return carstate.engine_temp;
 }
 

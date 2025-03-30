@@ -1,6 +1,37 @@
 # CANBUS Box Firmware - Reverse Engineered and Enhanced
 
-This project provides reverse-engineered and enhanced firmware for STM32F1 and Nuvoton NUC131-based CANBUS adapters (often called "CANBUS boxes" or "decoders"), commonly used to interface between a vehicle's CAN bus and an Android head unit.  These adapters are readily available on platforms like AliExpress. This project aims to deliver open-source, configurable, and feature-rich firmware, going beyond the often-limited capabilities of the original firmware.
+This project is a significantly reworked and expanded version of the [canbox](https://github.com/smartgauges/canbox) project by smartgauges, providing reverse-engineered and enhanced firmware for STM32F1 and Nuvoton NUC131-based CANBUS adapters (often called "CANBUS boxes" or "decoders"), commonly used to interface between a vehicle's CAN bus and an Android head unit.  These adapters are readily available on platforms like AliExpress. This project aims to deliver open-source, configurable, and feature-rich firmware, going beyond the often-limited capabilities of the original firmware.
+
+**AI Assistance Disclaimer:**  This project, including the code, documentation (like this README), and overall structure, has been heavily developed and enhanced with the assistance of an AI language model. Specifically, **Google AI's Gemini Pro** was used extensively for:
+
+*   Code generation and modification
+*   Documentation writing and organization
+*   Content enhancement based on original sources (including forum comments)
+*   Creation of build, PlatformIO and debugging configurations
+*   Translation and summarization of the original Russian documentation.
+
+**Project Goal and Roadmap:**
+
+The primary goal is to create open-source, customizable firmware for STM32F1 and Nuvoton NUC131-based CANBUS adapters. This enables users to extract more data from their vehicle's CAN bus and seamlessly integrate it with Android head units.  A key part of making this project easier to develop and extend is the inclusion of robust emulation and debugging environments.
+
+**Current Status:**
+
+*   The original project provides a functional base for STM32F1 (Volvo OD2 adapter) and Nuvoton NUC131 (VW NC03, VW_NCD01 adapters).
+*   QEMU emulation is already available and working for the *STM32F1* version.
+*   Extensive documentation and build/debug configurations (for VS Code and command-line tools) have been added.
+*   PlatformIO and VS Code integration is implemented for streamlined build and debug process.
+
+**Future Plans (Roadmap):**
+
+1.  **Enhanced QEMU Environment:** Expand the existing QEMU emulation environment to include simulated CAN bus traffic, mimicking both the *vehicle's* CAN bus and the *Android head unit's* serial communication. This will enable a comprehensive, hardware-free development and testing workflow.
+2.  **Nuvoton NUC131 QEMU support**: Add QEMU support, which will require creating QEMU device for Nuvoton NUC131.
+3.  **Modular CAN Protocol Emulation:** Further refine the `canbox.c` module to make it easier to add and switch between different emulated head unit protocols.
+4.  **Expanded Vehicle Support:**  Encourage community contributions to add support for more car models by providing clear guidelines and templates in the `cars/` directory.
+5.  **Improved Configuration:**  Potentially develop a more user-friendly configuration method (e.g., a simple web interface or configuration file) instead of relying solely on the serial command interface.
+6.  **Head Unit Communication Protocol Reverse Engineering:** Continue to improve the understanding and implementation of various head unit communication protocols (Raise, HiWorld, etc.) by analyzing their behavior and referring to available open-source projects.
+7.  **PlatformIO and VS Code Support:** Fully integrate PlatformIO and VS Code for build and debugging workflows, providing pre-configured environments and tasks.
+8.	**Support for more MCU Families:** Add support for more MCU families.
+9.  **Support for more CAN Box protocols:** Add support for even more headunit communication protocols.
 
 **Key Features and Project Goals:**
 
@@ -11,6 +42,7 @@ This project provides reverse-engineered and enhanced firmware for STM32F1 and N
     *   **VW_NCD01 Adapter:**  Newer version of the VW_NC03, also Nuvoton-based.
     *   **QEMU Emulation:**  Debug and run the STM32F1 version in QEMU, facilitating development without hardware.
 *   **MCU Families:**
+    *   Support for PlatformIO build system for both STM32F1 and Nuvoton NUC131 targets.
     *   STMicroelectronics STM32F1 series (STM32F103x8)
     *   Nuvoton NUC131 series
 *   **Emulated CANBUS Protocols (for Head Unit Communication):**
@@ -20,6 +52,7 @@ This project provides reverse-engineered and enhanced firmware for STM32F1 and N
     *   HiWorld VW (MQB)
     *   Mercedes-Benz UDS-based CANBUS (mentioned in the original README)
 *   **Confirmed Car Model Support:**
+    *   Peugeot 407 (2008MY)
     *   Land Rover Freelander 2 (2007MY, 2013MY)
     *   Volvo XC90 (2007MY)
     *   Volkswagen Tiguan (implied by VW_NC03 adapter)
@@ -34,6 +67,7 @@ This project provides reverse-engineered and enhanced firmware for STM32F1 and N
     *   **User Configuration:**  Serial interface (RX/TX) for configuration, debugging, and monitoring.
     *   **Reduced Sleep Mode Power Consumption:** Optimized power usage in sleep mode.
 *   **Comprehensive Documentation:**  Includes detailed guides on hardware/software setup, UART debugging, project architecture, and VS Code configuration.
+*   **PlatformIO and VS Code Integration:** Pre-configured `platformio.ini`, `.vscode/launch.json`, and `.vscode/tasks.json` files for building, debugging, and flashing within VS Code, and using PlatformIO CLI.
 *   **VS Code Integration:**  Pre-configured `launch.json` and `tasks.json` files for debugging with OpenOCD (STM32/Nuvoton) and QEMU (STM32).
 
 ## Table of Contents
@@ -53,11 +87,16 @@ This project provides reverse-engineered and enhanced firmware for STM32F1 and N
     *   [Building for Different Targets](#build-targets)
     *   [Flashing with OpenOCD](#flashing)
     *   [QEMU Emulation and Debugging](#qemu)
+    *   [Building and Flashing with PlatformIO](#build-platformio)
 5.  [Project Structure and Code Overview](#project-structure)
     *   [Main Components](#main-components)
     *   [Data Flow](#data-flow)
 6.  [Adapting to New Vehicles](#new-vehicles)
-7.  [VS Code Debugging Setup](#vscode-debugging)
+7. [PlatformIO and VS Code](#platformio)
+    * [Installing PlatformIO](#install-platformio)
+    * [Building with PlatformIO](#build-platformio)
+    * [Debugging with PlatformIO and VS Code](#debug-platformio)
+    * [Running QEMU Directly](#qemu-direct)
 8.  [Contributing](#contributing)
 
 ## 1. <a name="introduction"></a>Introduction to CANBUS and Android Head Unit Integration
@@ -102,10 +141,11 @@ These instructions assume a Linux environment (Ubuntu, Fedora, Arch, OpenSUSE, o
 1.  **ARM Cross-Compiler Toolchain:** Install the `arm-none-eabi-gcc`, `arm-none-eabi-binutils`, and `arm-none-eabi-gdb` packages using your distribution's package manager.  See `doc/env_setup.md` for detailed instructions.
 2.  **OpenOCD:** Install OpenOCD (Open On-Chip Debugger) for flashing and debugging on hardware.  Instructions are in `doc/env_setup.md`.  For Nuvoton NUC131, you might need to build OpenOCD from source.
 3.  **QEMU (Optional):**  Install `qemu-system-arm` for emulating the STM32F1 version.
-4.  **Make:** Install the `make` utility. It is usually installed by default, but check to make sure.
+4.  **Make:** Install the `make` utility. It is likely already installed.
 5.  **Serial Terminal Program:** Install a serial terminal program like `picocom`, `tio`, `minicom`, `screen`, GTKTerm, or CuteCom.  `tio` or `picocom` are recommended for simplicity.
 6.  **VS Code and Extensions (Optional):** If you plan to use VS Code, install the "C/C++" and "Cortex-Debug" extensions.
-7.  **Git:** To clone the repository.
+7.  **Git:** To clone the firmware repository.
+8. **PlatformIO and Extension (Optional):** If you want to use a full IDE.
 
 Detailed installation commands for various Linux distributions are provided in `doc/env_setup.md`.
 
@@ -203,7 +243,7 @@ To capture all communication between the CAN box and the Android head unit (or y
 picocom -b 38400 /dev/ttyUSB0 > can_log.txt 2>&1 &
 ```
 
-Or using `tio`:
+Or, with `tio`:
 ```bash
 tio -b 38400 /dev/ttyUSB0 > can_log.txt 2>&1 &
 ```
@@ -254,7 +294,7 @@ Use the following `make` commands with an ST-Link V2 programmer:
 1.  **Build for QEMU:** `make qemu`
 2.  **Run in QEMU:** `make run_qemu`
 
-This will compile the `qemu.bin` file, and run QEMU to simulate the STM32F1 microcontroller, enabling debugging.
+This will compile the `qemu.bin` file and run QEMU to simulate the STM32F1 microcontroller.
 
 **Debugging with GDB (within QEMU):**
 
@@ -267,7 +307,7 @@ This will compile the `qemu.bin` file, and run QEMU to simulate the STM32F1 micr
     Or, if you want to run it manually:
 
     ```bash
-    qemu-system-arm -M stm32-p103 -kernel firmware.elf -nographic -S -s
+    qemu-system-arm -M stm32vldiscovery -kernel firmware.elf -nographic -S -s
     ```
 
 2.  Start a GDB session in *another* terminal:
@@ -275,6 +315,7 @@ This will compile the `qemu.bin` file, and run QEMU to simulate the STM32F1 micr
     ```bash
     arm-none-eabi-gdb firmware.elf
     ```
+
 3.  Connect GDB to QEMU:
 
     ```
@@ -282,6 +323,19 @@ This will compile the `qemu.bin` file, and run QEMU to simulate the STM32F1 micr
     ```
 
 4.  You can now set breakpoints, step through code, inspect variables, etc., within the GDB session.
+
+### 4.4. <a name="build-platformio"></a>Building and Flashing with PlatformIO
+
+**Building with PlatformIO**
+
+1.  **Install PlatformIO:** Follow the instructions in section [7.1. <a name="install-platformio"></a>Installing PlatformIO](#install-platformio).
+2.  **Build with PlatformIO:** Use the PlatformIO build tasks in VS Code or the `pio run -e <environment>` command in the terminal. See section [7.2. <a name="build-platformio"></a>Building with PlatformIO](#build-platformio) for details.
+
+**Flashing with PlatformIO**
+
+*   You may need a specific version of OpenOCD (potentially built from source) for the Nuvoton NUC131. See `doc/env_setup.md` and `doc/sources/DRIVE2.md` for details.
+*   You will likely need to create a `target/NUC131.cfg` file for OpenOCD.
+*   ST-Link connection: Connect to the internal CON2 connector on the VW NC03 board.  Use the schematic or a multimeter to determine the correct pinout (GND, PWR, SWDIO, SWCLK, RST).
 
 ## 5. <a name="project-structure"></a>Project Structure and Code Overview
 
@@ -293,9 +347,9 @@ The firmware is designed to be modular, making it easier to add support for new 
 
 *   **`hw.c`, `hw.h`:**  Hardware Abstraction Layer (HAL).  Provides a consistent interface to the microcontroller's peripherals (GPIO, USART, CAN, timers, etc.), regardless of the specific MCU (STM32F1 or NUC131).  Platform-specific code is isolated here.
 
-*   **`hw_*.c`, `hw_*.h`:**  Individual HAL implementations for specific peripherals (e.g., `hw_can.c`, `hw_usart.c`, `hw_tick.c`, `hw_gpio.c`).
+*   **`hw_*.c`, `hw_*.h`:**  Individual HAL implementations for specific peripherals (e.g., `hw_can.c`, `hw_usart.c`, `hw_tick.c`, `hw_gpio.c`).  These provide the low-level drivers for interacting with the microcontroller hardware.
 
-*   **`canbox.c`, `canbox.h`:**  Implements communication with the Android head unit over the serial interface (RX/TX).  Handles the emulated CANBUS protocols (Raise, HiWorld, etc.), sending vehicle data and processing head unit commands.
+*   **`canbox.c`, `canbox.h`:**  Implements communication with the Android head unit over the serial interface (RX/TX).  Handles the selection of the active CANBUS protocol to emulate.  This module now delegates the protocol-specific message formatting and command handling to the files within the `protocol/` directory, promoting modularity and easier protocol addition.
 
 *   **`car.c`, `car.h`:**  Contains the *vehicle-specific* logic for decoding CAN bus messages.  This is the core component for adapting the firmware to different car models.  It provides a standardized interface for accessing vehicle data (e.g., `car_get_speed()`, `car_get_door_fl()`).
 
@@ -305,6 +359,12 @@ The firmware is designed to be modular, making it easier to add support for new 
 
 ### Subdirectories
 
+*   **`protocol/`:** This *new* directory contains the implementation of different head unit communication protocols. Each protocol (e.g., `raisepq`, `raisemqb`, `bmwnbevo`, `hiworldmqb`) has its own subdirectory with `.c` and `.h` files.  These files handle the protocol-specific details of formatting CAN messages for the head unit and processing commands received from the head unit.  This modular structure makes it easier to add new protocols and switch between them.
+    *   `interface.h`: Defines a common interface (`protocol_ops_t` structure) for all emulated CANBUS protocols, ensuring a consistent way to interact with different protocol implementations from `canbox.c`.
+    *   `raisepq/`: Contains the implementation for the Raise VW (PQ) protocol.
+    *   `raisemqb/`: Contains the implementation for the Raise VW (MQB) protocol.
+    *   `bmwnbevo/`: Contains the implementation for the Audi BMW (NBT Evo) protocol.
+    *   `hiworldmqb/`: Contains the implementation for the HiWorld VW (MQB) protocol.
 *   **`cars/`:**  *Crucially*, this directory contains vehicle-specific CAN message handling. Each car model has its own `.c` file (e.g., `lr2_2007my.c`, `xc90_2007my.c`). These files:
     *   Define `msg_desc_t` structures: These describe the CAN messages to be monitored (ID, period, handler function).
     *   Implement handler functions: These decode the data from received CAN messages and update the `carstate` structure.
@@ -330,34 +390,82 @@ The most critical step in adapting this firmware to a new vehicle is to **revers
 3.  **Message Identification:**  Analyze the captured CAN data to identify the message IDs and data bytes that correspond to the desired vehicle parameters.  Look for patterns and changes in the data that correlate with the actions you performed. The `plot` program mentioned in `DRIVE2.md` can be helpful for visualizing this data.
 4.  **Creating a Car-Specific File:**  Create a new `.c` file in the `cars/` directory (e.g., `my_car_model.c`).  Define the `msg_desc_t` structures and handler functions to decode the relevant CAN messages and update the `carstate` structure.
 5.  **Updating `conf.c` and `car.c`:**  Add support for the new car model in `conf.c` (to store the selected car) and `car.c` (to initialize and process data for the new model).
-6. **Testing and Refinement:**  Thoroughly test the implementation and refine the CAN message decoding as needed.
+6.  **Testing and Refinement:**  Thoroughly test the implementation and refine the CAN message decoding as needed.
 
-## 7. <a name="vscode-debugging"></a>VS Code Debugging Setup
+## <a name="platformio"></a>7. PlatformIO and VS Code
 
-The project includes `.vscode/launch.json` and `.vscode/tasks.json` files for debugging in VS Code.
+This project is designed to be built and managed using PlatformIO, a cross-platform, open-source ecosystem for IoT development. PlatformIO provides a unified build system, library manager, and debugging tools, simplifying the development process.  The recommended IDE is Visual Studio Code (VS Code) with the PlatformIO extension.
 
-**Prerequisites:**
+### 7.1. <a name="install-platformio"></a>Installing PlatformIO
 
-*   **C/C++ Extension:**  Install the "C/C++" extension (ms-vscode.cpptools).
-*   **Cortex-Debug Extension:** Install the "Cortex-Debug" extension (marus25.cortex-debug).
-*   **ARM Cross-Compiler Toolchain:**  Ensure you have the ARM toolchain (including `arm-none-eabi-gdb`) installed and in your PATH.
-*   **OpenOCD:** Install OpenOCD (and potentially build from source for Nuvoton, as described in `doc/env_setup.md`).
+1.  **Install VS Code:** Download and install VS Code from [https://code.visualstudio.com/](https://code.visualstudio.com/).
+2.  **Install the PlatformIO IDE Extension:** Open VS Code, go to the Extensions view (Ctrl+Shift+X or Cmd+Shift+X), search for "PlatformIO IDE", and click "Install". Restart VS Code when prompted.
 
-**Configurations:**
+### 7.2. <a name="build-platformio"></a>Building with PlatformIO
 
-*   **`OpenOCD (STM32 - Volvo OD2)`:**  Debugs firmware on the Volvo OD2 adapter (STM32F103x8) using an ST-Link V2 programmer.
-*   **`OpenOCD (Nuvoton NUC131 - VW NC03)`:**  Debugs firmware on the VW NC03 adapter (Nuvoton NUC131) using an ST-Link V2 programmer. *You may need to create the `target/NUC131.cfg` file for OpenOCD.*
-*   **`QEMU (STM32)`:**  Debugs the STM32F1 firmware in the QEMU emulator.
+The `platformio.ini` file in the project root configures the build process for different targets.
 
-**How to Debug:**
+1.  **Open the Project:** In VS Code, open the `canbox` folder (the one containing `platformio.ini`). PlatformIO should automatically detect the project.
+2.  **Build:**
+    *   Click the "PlatformIO" icon in the activity bar (the alien head).
+    *   In the "Project Tasks" section, expand the environment you want to build (e.g., `env:genericSTM32F103C8`, `env:qemu`).
+    *   Click "Build".
 
-1.  **Build the Firmware:**  Use the appropriate `make` command (e.g., `make volvo_od2.bin`).
-2.  **Connect Hardware (if applicable):**  Connect the ST-Link V2 programmer to the target board.
-3.  **Open VS Code:** Open the project folder.
-4.  **Select Debug Configuration:**  In the "Run and Debug" view (Ctrl+Shift+D or Cmd+Shift+D), choose the appropriate configuration.
-5.  **Start Debugging:** Press F5 or click the "Start Debugging" button.
+    Alternatively, you can use the PlatformIO CLI:
 
-The `preLaunchTask` in `launch.json` will automatically build the selected target before starting the debugger. The `postDebugTask` terminates the `openocd` process, when necessary.
+    *   Open a terminal in the project directory.
+    *   Run `pio run -e <environment>` (e.g., `pio run -e genericSTM32F103C8` or `pio run -e qemu`).
+
+The compiled firmware (`firmware.elf` and `firmware.bin`) will be located in the `.pio/build/<environment>` directory.
+
+### 7.3. <a name="debug-platformio"></a>Debugging with PlatformIO and VS Code
+
+The `.vscode/launch.json` and `.vscode/tasks.json` files provide pre-configured debugging setups for both on-hardware debugging (using OpenOCD and an ST-Link V2) and QEMU emulation.
+
+1.  **Prerequisites:** Ensure you have the necessary tools installed (ARM toolchain, OpenOCD, QEMU) as described in the "Software Prerequisites" section.
+2.  **Connect Hardware (if applicable):** For on-hardware debugging (STM32 or Nuvoton), connect your ST-Link V2 programmer to the target board.
+3.  **Select Debug Configuration:** In VS Code, go to the "Run and Debug" view (Ctrl+Shift+D or Cmd+Shift+D). Select the desired configuration from the dropdown menu (e.g., "OpenOCD (STM32 - Volvo OD2)", "OpenOCD (Nuvoton NUC131 - VW NC03)", or "QEMU (STM32)").
+4.  **Start Debugging:** Press F5 or click the "Start Debugging" button. The `preLaunchTask` in `launch.json` will automatically build the appropriate firmware target before starting the debugger.
+5. **Debug tasks**: The debugging tasks in `.vscode/tasks.json` can be also launched from "Terminal"->"Run Task..."
+
+**Troubleshooting:**
+
+*   If you encounter issues with OpenOCD, make sure it's correctly installed and configured (especially for the Nuvoton NUC131).  You may need to create a custom `target/NUC131.cfg` file.
+*   Ensure the correct GDB executable (`arm-none-eabi-gdb`) is specified in `launch.json` and is in your system's PATH.
+*   Verify that the `configFiles` in `launch.json` point to the correct interface and target configuration files for your hardware.
+
+### 7.4. <a name="qemu-direct"></a>Running QEMU Directly
+
+For more advanced QEMU usage or troubleshooting, you can run QEMU directly from the command line:
+
+1.  **Build the QEMU target:**  `make qemu` (or use the PlatformIO build task).
+
+2.  **Run QEMU:**
+
+    ```bash
+    qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf -serial stdio -display none
+    ```
+
+    This command:
+
+    *   `qemu-system-arm`: Starts the ARM system emulator.
+    *   `-M stm32vldiscovery`: Specifies the emulated machine (stm32vldiscovery board).
+    *   `-kernel .pio/build/qemu/firmware.elf`:  Loads the compiled ELF firmware.
+    *   `-serial stdio`: Redirects the serial port (USART) to the standard input/output, allowing you to interact with the debug interface.
+    *   `-display none`:  Runs QEMU without a graphical display (headless mode).
+
+    You can then use a serial terminal program (like `picocom` or `tio`) to connect to the emulated serial port.
+
+    For debugging with GDB, add the `-S -s` options:
+
+    ```bash
+    qemu-system-arm -M stm32vldiscovery -kernel .pio/build/qemu/firmware.elf -serial stdio -display none -S -s
+    ```
+
+    *   `-S`:  Halts the CPU at startup.
+    *   `-s`:  Creates a GDB server on port 1234.
+
+    Then, connect GDB as described in the "QEMU Emulation and Debugging" section above.
 
 ## 8. <a name="contributing"></a>Contributing
 
@@ -374,7 +482,4 @@ When contributing, please follow these guidelines:
 
 *   **Code Style:**  Maintain a consistent coding style with the existing code.
 *   **Documentation:**  Update the documentation (including the README and code comments) to reflect your changes.
-*   **Testing:**  Thoroughly test your changes, ideally on real hardware.
-*   **Clear Commit Messages:** Write clear and concise commit messages that explain the purpose of your changes.
-
-This project is a collaborative effort, and your contributions are highly valued!
+*   **Testing:**  Thoroughly test your changes, ideally on real hardware
