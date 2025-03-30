@@ -64,9 +64,9 @@ def analyze_can_log(log_file, output_file=None, id_filter=None):
                                 pass; # in a case data is not in hex.
 
                     data_bytes = bytes(data_bytes)  # Convert to bytes object.
-                    if len(data_bytes) != data_length:
-                       #print(f"Skipping invalid line, lenght mismatch data:{len(data_bytes)} expected:{data_length}  : {row}")
-                       continue;
+                    # if len(data_bytes) != data_length:
+                    #    #print(f"Skipping invalid line, lenght mismatch data:{len(data_bytes)} expected:{data_length}  : {row}")
+                    #    continue;
 
                 except (IndexError, ValueError) as e:
                     #print(f"Skipping invalid line {row} - {e}")
@@ -129,6 +129,7 @@ def main():
 
     args = parser.parse_args()
 
+    # Convert filter to integer if provided:
     id_filter = None
     if args.filter:
         try:
