@@ -13,6 +13,7 @@
 #include "protocol/bmwnbtevo.h"
 #include "protocol/hiworldmqb.h"
 #include "protocol/hiworldpsapf2.h"
+#include "protocol/raiserzc.h"
 
 
 #ifdef E_CANBOX_RAISE_VW_PQ
@@ -35,6 +36,12 @@
 #include "protocol/hiworldpsapf2.c" 
 #endif
 
+#ifdef E_CANBOX_RAISE_RCZ
+#include "protocol/raiserzc.c"
+#endif
+
+
+
 const protocol_ops_t *protocol_ops[] = {
     #ifdef E_CANBOX_RAISE_VW_PQ
         &raise_vw_pq_protocol_ops,
@@ -50,6 +57,9 @@ const protocol_ops_t *protocol_ops[] = {
     #endif
     #ifdef E_CANBOX_HIWORLD_PSA_PF2 
         &hiworld_psa_protocol_ops
+    #endif
+    #ifdef E_CANBOX_RAISE_RCZ
+        &raise_rcz_protocol_ops
     #endif
 };
 
