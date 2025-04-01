@@ -48,7 +48,35 @@ class CanboxKeywords:
             print(f"CAN bus on {self.can_interface} ({self.can_type}) initialized.")
         except can.CanError as e:
             raise Exception(f"Failed to initialize CAN bus: {e}")
-        
+    
+    # Add this method inside the CanboxKeywords class in CanboxKeywords.py
+    def calculate_rzc_checksum(self, length_hex, datatype_hex, data_hex=""):
+        """Calculates the RZC PSA checksum (Sum(LEN, DTYPE, DATA) & 0xFF).
+
+        Args:
+            length_hex (str): The LEN byte as a hex string (e.g., '04').
+            datatype_hex (str): The DataType byte as a hex string (e.g., '02').
+            data_hex (str): The DATA bytes as a hex string (e.g., '140100'). Defaults to "".
+
+        Returns:
+            str: The calculated checksum as a two-digit uppercase hex string (e.g., '1B').
+        """
+        try:
+            length = int(length_hex, 16)
+            datatype = int(datatype_hex, 16)
+            data_bytes = bytes.fromhex(data_hex) if data_hex else b''
+
+            checksum = 0
+            checksum = (checksum + length) & 0xFF
+            checksum = (checksum + datatype) & 0xFF
+            for byte in data_bytes:
+                checksum = (checksum + byte) & 0xFF
+
+            return f"{checksum:02X}"
+        except ValueError as e:
+            raise ValueError(f"Error calculating RZC checksum: Invalid hex input - {e}")
+
+
     def close_can(self):
         """
         Closes can bus connection
@@ -380,6 +408,87 @@ class CanboxKeywords:
         # Timeout failure
         final_state = self.get_gpio_pin_state_directly(gpio_peripheral, pin_number) # Get final state
         raise AssertionError(f"❌ Direct GPIO - {gpio_peripheral} Pin {pin_number} did not reach state {expected_state} within {timeout}s. Last state: {final_state}")
+
+
+    def wait_for_serial_hex_string(self, expected_hex_string, timeout=5.0):
+        """Waits for a specific sequence of hexadecimal bytes on the COMMAND serial port.
+
+        Args:
+            expected_hex_string (str): The exact sequence of hex bytes to find,
+                                       case-insensitive (e.g., "FD073800080000000047").
+            timeout (float): Maximum time to wait in seconds. Defaults to 5.0.
+
+        Returns:
+            str: The found hex string (matched portion).
+
+        Raises:
+            AssertionError: If the hex string is not found within the timeout.
+        """
+        start_time = time.time()
+        # Normalize expected string to uppercase for consistent comparison
+        search_string_upper = expected_hex_string.upper()
+        # Use bytearray to efficiently store and search raw bytes
+        byte_buffer = bytearray()
+
+        print(f"Waiting for serial HEX string: {search_string_upper}") # Debug
+
+        # Check initial buffer if any exists
+        try:
+            if self.serial_port_cmd and self.serial_port_cmd.is_open and self.serial_port_cmd.in_waiting > 0:
+                 initial_bytes = self.serial_port_cmd.read(self.serial_port_cmd.in_waiting)
+                 byte_buffer.extend(initial_bytes)
+                 # Also add decoded version to main log for context in case of failure
+                 self._serial_cmd_data += initial_bytes.decode('utf-8', errors='replace')
+                 # Initial check
+                 current_hex_repr = ''.join(f'{b:02X}' for b in byte_buffer)
+                 if search_string_upper in current_hex_repr:
+                     print(f"✅ Found HEX string in initial buffer: {search_string_upper}")
+                     return search_string_upper
+        except (serial.SerialException, OSError) as e:
+             print(f"Warning: Serial exception checking initial buffer: {e}")
+             # Handle port reopening if necessary...
+
+        # Main loop reading new data
+        while time.time() - start_time < timeout:
+            try:
+                if self.serial_port_cmd and self.serial_port_cmd.is_open and self.serial_port_cmd.in_waiting > 0:
+                    new_data_bytes = self.serial_port_cmd.read(self.serial_port_cmd.in_waiting)
+                          
+                    if new_data_bytes:
+
+                        hex_representation = ' '.join(f'{b:02X}' for b in new_data_bytes)
+                        # print(f"{hex_representation.replace('FD', '\nFD')}") # Keep this for debugging
+
+                        byte_buffer.extend(new_data_bytes)
+                        # Also add decoded version to main log
+                        self._serial_cmd_data += new_data_bytes.decode('utf-8', errors='replace')
+
+                        # <<< Search the HEX representation of the entire buffer >>>
+                        current_hex_repr = ''.join(f'{b:02X}' for b in byte_buffer)
+                        if search_string_upper in current_hex_repr:
+                            print(f"✅ Found HEX string: {search_string_upper}")
+                            return search_string_upper # Return the string we were looking for
+
+    
+
+            except (serial.SerialException, OSError) as e:
+                 print(f"Warning: Serial exception during read: {e}")
+                 # Handle port reopening if necessary...
+                 if not self.serial_port_cmd or not self.serial_port_cmd.is_open:
+                     raise AssertionError(f"❌ Serial port disconnected during wait.")
+
+            time.sleep(0.01) # Small sleep
+
+        # Timeout handling: Check the final buffer one last time
+        print(f"Timeout reached. Checking final HEX buffer ({len(byte_buffer)} bytes) for string: {search_string_upper}")
+        final_hex_repr = ''.join(f'{b:02X}' for b in byte_buffer)
+        if search_string_upper in final_hex_repr:
+             print(f"✅ Found HEX string in final buffer: {search_string_upper}")
+             return search_string_upper
+
+        # If not found after timeout
+        raise AssertionError(f"❌ Failed to find serial HEX string: '{expected_hex_string}' within {timeout}s. Full HEX Buffer:\n{final_hex_repr.replace('FD', '\nFD')}")
+
 
     # --- Cleanup ---
     def _close(self):

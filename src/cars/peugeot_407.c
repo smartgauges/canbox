@@ -96,8 +96,8 @@ typedef struct {
 static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg_desc_t * desc)
 {
     if (is_timeout(desc)) {
-        carstate.ign = 0;
-        carstate.acc = 0;
+        carstate.ign = STATE_UNDEF;
+        carstate.acc = STATE_UNDEF;
         carstate.illum = 0; // Brightness level
         return;
     }
@@ -116,13 +116,13 @@ static void peugeot_407_ms_036_ign_light_handler(const uint8_t * msg, struct msg
             carstate.acc = 1;
             break;
         case ID_0x036_IGN_STATE_ACC:
-            carstate.ign = 0;
+            carstate.ign = STATE_UNDEF;
             carstate.acc = 1;
             break;
         case ID_0x036_IGN_STATE_OFF:
         default: // Treat unknown states as OFF
-            carstate.ign = 0;
-            carstate.acc = 0;
+            carstate.ign = STATE_UNDEF;
+            carstate.acc = STATE_UNDEF;
             break;
     }
 
@@ -731,15 +731,13 @@ static void peugeot_407_ms_221_trip_inst_handler(const uint8_t * msg, struct msg
 {
     if (is_timeout(desc)) {
         carstate.inst_consumption_raw = 0;
-        carstate.inst_consumption_invalid = 1; // Invalid on timeout
         carstate.range_km = 0;
-        carstate.range_invalid = 1; // Invalid on timeout
         return;
     }
 
     // --- Decode Instantaneous Consumption ---
-    carstate.inst_consumption_invalid = (msg[ID_0x221_INV_CONS_BYTE] & ID_0x221_INV_CONS_MASK);
-    if (!carstate.inst_consumption_invalid) {
+    uint8_t  inst_consumption_invalid = (msg[ID_0x221_INV_CONS_BYTE] & ID_0x221_INV_CONS_MASK);
+    if (!inst_consumption_invalid) {
         // Read raw Big Endian value. Scaling factor needs verification (e.g., /10 for L/100km?)
         carstate.inst_consumption_raw = get_be16(&msg[ID_0x221_CONS_BYTE_MSB]);
         // Example scaling (VERIFY THIS!): carstate.inst_consumption_L100km = (float)carstate.inst_consumption_raw / 10.0f;
@@ -748,8 +746,8 @@ static void peugeot_407_ms_221_trip_inst_handler(const uint8_t * msg, struct msg
     }
 
     // --- Decode Range (DTE) ---
-    carstate.range_invalid = (msg[ID_0x221_INV_RANGE_BYTE] & ID_0x221_INV_RANGE_MASK);
-    if (!carstate.range_invalid) {
+    uint8_t  range_invalid = (msg[ID_0x221_INV_RANGE_BYTE] & ID_0x221_INV_RANGE_MASK);
+    if (!range_invalid) {
         // Read raw Big Endian value. Units likely km.
         carstate.range_km = get_be16(&msg[ID_0x221_RANGE_BYTE_MSB]);
     } else {

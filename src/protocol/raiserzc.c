@@ -140,52 +140,49 @@ static uint8_t map_radar_dist_to_rzc(uint8_t car_dist_0_7) {
 // DataType 0x38: Vehicle Status (Doors, Lights, Settings subset)
 // This seems like the most comprehensive single status message.
 static void raise_rcz_vehicle_status_process(void) {
-    uint8_t data[6] = {0}; // Spec shows up to Data5 used
+    uint8_t data[6]; // Payload size is 6 for DataType 0x38 (LEN=7 -> 1 DType + 6 Data)
 
-    // Data0 (Doors)
-    if (car_get_door_fl()) data[0] |= 0x80;
-    if (car_get_door_fr()) data[0] |= 0x40;
-    if (car_get_door_rl()) data[0] |= 0x20;
-    if (car_get_door_rr()) data[0] |= 0x10;
-    if (car_get_tailgate()) data[0] |= 0x08;
-    // Bonnet bit not explicitly mentioned for 0x38 Data0 in spec, unlike Hiworld 0x11
+    // Check the primary enabling state (ACC) first
+    if (car_get_acc() != 0) {
+        // --- ACC is ON: Build payload based on current states ---
+        memset(data, 0x00, sizeof(data)); // Start with a clean slate
 
-    // Data1 (Settings/Status 1) - Map what we have
-    // Bit 7: Rear Wiper -> Ignore for now
-    // Bit 6: Auto Park Brake -> Ignore
-    // Bit 4: Auto Door Lock -> Ignore
-    // Bit 3: Park Assist System -> Use radar state? 1=Enabled
-    struct radar_t radar; car_get_radar(&radar);
-    if (radar.state != e_radar_off && radar.state != e_radar_undef) data[1] |= 0x08;
-    // Bit 2: Central Lock -> Ignore
-    // Bits 1-0: Current Trip Page -> Ignore (handled by separate messages)
+        // Data0 (Doors)
+        if (car_get_door_fl()) data[0] |= 0x80;
+        if (car_get_door_fr()) data[0] |= 0x40;
+        if (car_get_door_rl()) data[0] |= 0x20;
+        if (car_get_door_rr()) data[0] |= 0x10;
+        if (car_get_tailgate()) data[0] |= 0x08;
+        // Bonnet? Not in spec for 0x38 Data0
 
-    // Data2 (Settings/Status 2)
-    // Bit 7: Daytime Lights -> Ignore
-    // Bits 6-5: Headlight Delay -> Ignore
-    // Bit 0: Adaptive Headlights -> Ignore
+        // Data1 (Settings/Status 1)
+        struct radar_t radar; car_get_radar(&radar);
+        // Park Assist System bit (Bit 3) - Set only if ACC is ON *and* radar is available/active
+        if (radar.state != e_radar_off && radar.state != e_radar_undef) data[1] |= 0x08;
 
-    // Data3 (Settings/Status 3)
-    // Bits 7-5: Ambiance Light -> Ignore (Use main illum)
-    // Bit 3: Park Sensor Disable -> Ignore (Assume enabled if sending radar)
-    if (get_rear_delay_state()) data[3] |= 0x04; // Bit 2: Reverse Status
-    if (car_get_park_break()) data[3] |= 0x02;   // Bit 1: P Gear / Handbrake Status (1=ON)
-    if (car_get_park_lights()) data[3] |= 0x01;  // Bit 0: Parking Light Status (1=ON)
+        // Data3 (Settings/Status 3)
+        // Reverse Status (Bit 2) - Only possible if ACC is ON
+        if (get_rear_delay_state()) data[3] |= 0x04;
+        // Park Brake Status (Bit 1) - Can be ON even if ACC is OFF, but protocol might expect 0 if ACC=0
+        if (car_get_park_break()) data[3] |= 0x02;
+        // Park Light Status (Bit 0) - Can be ON even if ACC is OFF, but protocol might expect 0 if ACC=0
+        if (car_get_park_lights()) data[3] |= 0x01;
 
-    // Data4 (Settings/Status 4)
-    // Bits 7-6: Follow Me Home -> Ignore
-    // Bits 5-4: Welcome Light -> Ignore
-    // Bits 2-1: Audio EQ/Ambiance -> Ignore (Handled by HU)
-    // Bit 0: Fuel Unit Setting -> Ignore (Assumed by HU)
+        // Data 2, 4, 5 remain 0
 
-    // Data5 (Settings/Status 5)
-    // Bit 7: Blind Spot -> Ignore
-    // Bit 6: Start/Stop -> Ignore
-    // Bit 5: Welcome Function -> Ignore
-    // Bit 4: Driver Door Unlock Only -> Ignore
-    // Bits 3-0: Language -> Ignore
-
-    snd_raise_rcz_msg(RZC_DTYPE_VEHICLE_STATUS, data, sizeof(data));
+        // Send the message (payload is now correct for ON or OFF state)
+        snd_raise_rcz_msg(RZC_DTYPE_VEHICLE_STATUS, data, sizeof(data));
+    }
+    else {
+        // --- ACC is OFF: Send the explicit "All OFF" status ---
+        memset(data, 0x00, sizeof(data));
+        // Ensure all relevant bits are 0. memset already does this.
+        // For clarity, you could explicitly zero out bits if preferred, but memset is cleaner.
+        // data[0] = 0x00; // Doors
+        // data[1] = 0x00; // Settings 1 (Park Assist Off)
+        // data[3] = 0x00; // Settings 3 (Reverse Off, PB Off, ParkLt Off)
+        // data[2], data[4], data[5] are already 0 from memset
+    }
 }
 
 // DataType 0x29: Steering Wheel Angle
@@ -250,18 +247,15 @@ static void raise_rcz_temperature_process() {
 static void raise_rcz_trip0_process() {
     uint8_t data[9] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // Default invalid
 
-    if (!carstate.inst_consumption_invalid) {
-        // Scale and format instantaneous consumption (L/100km * 10?) -> VERIFY TARGET UNIT/SCALING
-        uint16_t cons_scaled = carstate.inst_consumption_raw / 10; // Example scaling
-        data[0] = (cons_scaled >> 8) & 0xFF;
-        data[1] = cons_scaled & 0xFF;
-    }
-    if (!carstate.range_invalid) {
-        // Format range (KM)
-        uint16_t range_km = carstate.range_km;
-        data[2] = (range_km >> 8) & 0xFF;
-        data[3] = range_km & 0xFF;
-    }
+    // Scale and format instantaneous consumption (L/100km * 10?) -> VERIFY TARGET UNIT/SCALING
+    uint16_t cons_scaled = car_get_inst_consumption_raw() / 10; // Example scaling
+    data[0] = (cons_scaled >> 8) & 0xFF;
+    data[1] = cons_scaled & 0xFF;
+    // Format range (KM)
+    uint16_t range_km = car_get_range_km();
+    data[2] = (range_km >> 8) & 0xFF;
+    data[3] = range_km & 0xFF;
+
     // Data 4-5 (Set Destination) - Usually not sent by CANbox
     // Data 6-8 (Start/Stop Time) - Likely not applicable
 

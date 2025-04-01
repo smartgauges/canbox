@@ -79,7 +79,7 @@ struct key_cb_t key_cb =
 	.mici = canbox_mici,
 };
 
-uint8_t debug_on = 1;
+uint8_t debug_on = 0;
 uint32_t debug_on_cnt = 0;
 uint8_t msg_idx = 0;
 

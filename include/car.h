@@ -121,6 +121,22 @@ uint8_t car_get_air_r_temp(void);
 uint8_t car_get_air_l_seat(void);
 uint8_t car_get_air_r_seat(void);
 
+uint32_t car_get_avg_speed1(void);
+uint16_t car_get_avg_consumption1_raw(void);
+uint32_t car_get_trip_distance1(void);
+
+uint32_t car_get_avg_speed2(void);
+uint16_t car_get_avg_consumption2_raw(void);
+uint32_t car_get_trip_distance2(void);
+
+uint16_t car_get_engine_temp(void);
+uint16_t car_get_oil_temp(void);
+
+uint16_t car_get_inst_consumption_raw(void);
+uint16_t car_get_range_km(void);
+
+
+
 #ifdef __cplusplus
 }
 #endif

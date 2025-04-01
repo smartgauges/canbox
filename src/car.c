@@ -44,9 +44,7 @@ typedef struct car_state_t
 
 
 	uint16_t inst_consumption_raw; // Instantaneous consumption raw value from CAN (needs scaling)
-    uint8_t  inst_consumption_invalid; // Flag: 1 if consumption is invalid ("--.-")
     uint16_t range_km;             // Distance To Empty (Range). Units: km.
-    uint8_t  range_invalid;        // Flag: 1 if range is invalid ("----")
 
     // Placeholders for Trip 1 data (Values need to be populated from a TBD CAN ID)
     uint16_t avg_speed1;           // Average Speed Trip 1. Units: km/h
@@ -98,9 +96,7 @@ static car_state_t carstate =
     .oil_temp = 0,              // Engine oil temp starts at 0 (or could be STATE_UNDEF)
 
 	.inst_consumption_raw = 0,
-    .inst_consumption_invalid = 1, // Assume invalid initially
     .range_km = 0,
-    .range_invalid = 1, // Assume invalid initially
 
     .avg_speed1 = 0,
     .avg_consumption1_raw = 0,
@@ -744,7 +740,14 @@ uint8_t car_get_air_r_seat(void)
 	return car_air_state.r_seat;
 }
 
-int16_t car_get_engine_temp(void) {
+uint16_t car_get_engine_temp(void) {
     return carstate.engine_temp;
 }
 
+uint16_t car_get_inst_consumption_raw(void) {
+    return carstate.inst_consumption_raw;
+}
+
+uint16_t car_get_range_km(void) {
+    return carstate.range_km;
+}

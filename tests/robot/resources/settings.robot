@@ -59,3 +59,10 @@ Teardown Test Environment
     Stop Renode
     Close Can
     
+
+Reset Renode Simulation
+    [Documentation]    Sends 'sysbus Reset' to the Renode monitor to reset the emulation.
+    Log    Resetting Renode simulation via monitor command 'sysbus Reset'...
+    ${output}=    Execute Monitor Command    sysbus Reset    # Execute the reset command
+    Log    Monitor Reset Output: ${output}    # Log output for debugging, if any
+    Sleep    0.5s    # Short pause to allow the emulated firmware to start rebooting

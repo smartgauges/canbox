@@ -4,6 +4,7 @@ Resource          ../resources/settings.robot
 Library           String
 
 Suite Setup       Setup Test Environment
+Test Teardown     Reset Renode Simulation
 Suite Teardown    Teardown Test Environment
 
 ***Variables***
