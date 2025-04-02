@@ -41,7 +41,7 @@ void hw_gpio_setup(void)
 
 	rcc_periph_clock_enable(ill.rcc);
 	gpio_clear(ill.port, ill.pin);
-	gpio_set_mode(ill.port, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, ill.pin);
+	gpio_set_mode(ill.port, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, ill.pin);
 }
 
 void hw_gpio_disable(void)

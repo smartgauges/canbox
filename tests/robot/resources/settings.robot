@@ -65,4 +65,4 @@ Reset Renode Simulation
     Log    Resetting Renode simulation via monitor command 'sysbus Reset'...
     ${output}=    Execute Monitor Command    sysbus Reset    # Execute the reset command
     Log    Monitor Reset Output: ${output}    # Log output for debugging, if any
-    Sleep    0.5s    # Short pause to allow the emulated firmware to start rebooting
+    Sleep    0.1s    # Short pause to allow the emulated firmware to start rebooting

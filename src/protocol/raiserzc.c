@@ -143,7 +143,16 @@ static void raise_rcz_vehicle_status_process(void) {
     uint8_t data[6]; // Payload size is 6 for DataType 0x38 (LEN=7 -> 1 DType + 6 Data)
 
     // Check the primary enabling state (ACC) first
-    if (car_get_acc() != 0) {
+    if (car_get_acc() == 0) {
+        // --- ACC is OFF: Send the explicit "All OFF" status ---
+        memset(data, 0x00, sizeof(data));
+        // Ensure all relevant bits are 0. memset already does this.
+        // For clarity, you could explicitly zero out bits if preferred, but memset is cleaner.
+        // data[0] = 0x00; // Doors
+        // data[1] = 0x00; // Settings 1 (Park Assist Off)
+        // data[3] = 0x00; // Settings 3 (Reverse Off, PB Off, ParkLt Off)
+        // data[2], data[4], data[5] are already 0 from memset
+    } else {
         // --- ACC is ON: Build payload based on current states ---
         memset(data, 0x00, sizeof(data)); // Start with a clean slate
 
@@ -169,20 +178,10 @@ static void raise_rcz_vehicle_status_process(void) {
         if (car_get_park_lights()) data[3] |= 0x01;
 
         // Data 2, 4, 5 remain 0
+    }
 
-        // Send the message (payload is now correct for ON or OFF state)
-        snd_raise_rcz_msg(RZC_DTYPE_VEHICLE_STATUS, data, sizeof(data));
-    }
-    else {
-        // --- ACC is OFF: Send the explicit "All OFF" status ---
-        memset(data, 0x00, sizeof(data));
-        // Ensure all relevant bits are 0. memset already does this.
-        // For clarity, you could explicitly zero out bits if preferred, but memset is cleaner.
-        // data[0] = 0x00; // Doors
-        // data[1] = 0x00; // Settings 1 (Park Assist Off)
-        // data[3] = 0x00; // Settings 3 (Reverse Off, PB Off, ParkLt Off)
-        // data[2], data[4], data[5] are already 0 from memset
-    }
+    // Send the message (payload is now correct for ON or OFF state)
+    snd_raise_rcz_msg(RZC_DTYPE_VEHICLE_STATUS, data, sizeof(data));
 }
 
 // DataType 0x29: Steering Wheel Angle

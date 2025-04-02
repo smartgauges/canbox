@@ -5,8 +5,12 @@ import can
 import serial
 import time
 import re
-from threading import Thread
+from threading import Condition, Thread
 import telnetlib
+
+
+c = Condition()
+kill_can_threads = 0      #shared between Thread_A and Thread_B
 
 class CanboxKeywords:
     ROBOT_LIBRARY_SCOPE = 'SUITE'
@@ -97,6 +101,11 @@ class CanboxKeywords:
         """
         def send_message_loop(can_id, data, repeat, delay, is_extended):
             for _ in range(repeat):
+                c.acquire()
+                if kill_can_threads:
+                    c.release()
+                    break
+                c.release()
                 try:
                     self.send_can_message(can_id, data, is_extended)
                 except ValueError as e:
@@ -253,6 +262,7 @@ class CanboxKeywords:
                     self._serial_cmd_data += line + "\n"
                     if regex.search(line):
                         print(f"Matched serial data: {line}")
+                        self.kill_can_threads = 1
                         return line
             except (serial.SerialException, OSError) as e:
                 print(f"Warning: Serial exception during read: {e}")
@@ -271,6 +281,7 @@ class CanboxKeywords:
         for line in self._serial_cmd_data.splitlines():
              if regex.search(line.strip()):
                  print(f"Matched accumulated serial data: {line.strip()}")
+                 self.kill_can_threads = 1
                  return line.strip()
 
         raise AssertionError(f"❌ Failed to find command serial data matching pattern: {pattern} within {timeout}s. Full log:\n{self._serial_cmd_data}")
