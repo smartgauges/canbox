@@ -2,42 +2,41 @@
 
 **Source Repository:** [https://github.com/morcibacsi/PSACANBridge](https://github.com/morcibacsi/PSACANBridge)
 
-**`doc/psa_pf2_comfort.md` (Version 1.7 - Including CDC Emulation Info)**
+**`doc/psa_pf2_comfort.md` (Version 1.8 - Added Button Mapping & CDC Context)**
 
-**Source Note:** This version of the documentation has been significantly updated based on analysis of the `fazerxlo/simulator` and `kuba2k2/CDCEmu` projects, `PSACAN.md`, and logs from a Peugeot 407. Details related to **CD Changer Emulation** are primarily derived from `CDCEmu`. **Always verify CAN IDs, data formats, scaling, and offsets on your specific target vehicle and model year.**
+**Source Note:** This version incorporates information from `PSACAN.md`, `fazerxlo/simulator`, `kuba2k2/CDCEmu`, and analysis of logs from a Peugeot 407. It covers signals for basic CAN proxying and messages relevant to **CD Changer (CDC) Emulation**. Details may differ based on specific vehicle models, years, and equipment. **Always verify on your target system.**
 
 ### 1. Introduction
 
 This document provides a reference for CAN bus messages relevant to PSA PF2 platform vehicles (e.g., Peugeot 407, Citroën C5 Mk1/Mk2, Peugeot 307/308 Mk1).
 
-The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO) bus**, which usually operates at **125 kbps**. This information is crucial for developing CAN interface devices like CAN boxes (proxies) or custom integrations, including **CD Changer Emulators**.
+The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO) bus** (usually **125 kbps**). This information is crucial for developing CAN interface devices like CAN boxes (proxies), custom integrations, and **CD Changer Emulators**.
 
 ### 2. General Notes
 
 *   **Endianness:** Multi-byte values are generally treated as **Big Endian**.
 *   **Target Bus:** Assumed to be CAN Comfort (125 kbps).
-*   **Project Context:** Information is synthesized from multiple sources (`PSACANBridge`, `CDCEmu`, `simulator-main`, `PSACAN.md`). Specific implementations may vary.
+*   **Project Context:** Information is synthesized from multiple sources. Implementations may vary.
 
 ## PSA PF2 CAN Message Details
 
-*(Standard vehicle messages first, followed by CDC Emulation specifics)*
+*(Messages grouped by primary function/source ECU)*
 
 ---
 
-**CAN ID:** `0x036`
+### BSI (Body Systems Interface) Originated Messages
 
+**CAN ID:** `0x036`
 *   **Source:** BSI
-*   **Description:** Ignition mode, dashboard lighting status.
+*   **Description:** Ignition mode, dashboard lighting status. Essential for ACC/IGN/ILLUM signals.
 *   **Period:** ~100ms
-*   **Simulator Function (Sender):** `bsi-base/can_commandes`
-*   **CDCEmu Function (Sender):** `sendIgnitionStatus` (Sends based on internal state)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_036_ign_light_handler` logic.
 *   **Signals (Verified on 407 Log/Consistent Interpretation):**
-    | Byte | Bit(s)        | Description                                  | Notes                                  |
-    | :--- | :------------ | :------------------------------------------- | :------------------------------------- |
-    | 3    | Bit 5 (`L`)   | Dashboard Lighting Enabled (1=Enabled)       | Controls `ILLUM` pin state.            |
-    | 3    | Bits 3-0 (`l`) | Dashboard Lighting Brightness Level (0-15)   | Can be used for dimming if needed.     |
-    | 4    | Bits 1-0 (`P`) | Power Mode (Ignition/ACC state)            | `00`:OFF, `01`:IGN_ON, `03`:ACC_ON |
+    | Byte | Bit(s)        | Description                                  | Proxy Use                          |
+    | :--- | :------------ | :------------------------------------------- | :--------------------------------- |
+    | 3    | Bit 5 (`L`)   | Dashboard Lighting Enabled (1=Enabled)       | Drive `ILLUM` pin state            |
+    | 3    | Bits 3-0 (`l`) | Dashboard Lighting Brightness Level (0-15)   | Optional: Dimming control      |
+    | 4    | Bits 1-0 (`P`) | Power Mode (Ignition/ACC state)            | Drive `ACC`/`IGN` pin state        |
+    *   **Power Mode Values:** `00`: OFF, `01`: IGN_ON (Run), `03`: ACC_ON (Accessory)
 
 ---
 
@@ -77,56 +76,53 @@ The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO)
 ---
 
 **CAN ID:** `0x0F6`
-
 *   **Source:** BSI
-*   **Description:** Turn indicators, Reverse Light, Temperatures.
+*   **Description:** Turn indicators, Reverse Light status, Temperatures.
 *   **Period:** ~100ms
-*   **CDCEmu Function (Receiver):** `processFrame` (Reverse B7b7, AmbTemp B5, Coolant B1)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_0F6_status_handler` (Reverse B0b3, AmbTemp B3).
-*   **Signals (Conflicting Interpretations - VERIFY ON TARGET):**
-    *   **Reverse Gear Light:**
-        *   *CDCEmu:* Byte 7, Bit 7 (`1` = ON)
-        *   *PSACANBridge:* Byte 0, Bit 2 (`1` = ON)
-        *   *Your 407 Log:* Suggests Byte 0, Bit 3 (`1` = ON) - **Prioritize this if verified.**
-    *   **Ambient Temperature:**
-        *   *CDCEmu:* Byte 5 (`Raw * 0.5 - 40` °C)
-        *   *PSACANBridge:* Byte 3 (`Raw * 0.5 - 40` °C) - **Matches your 407 handler.**
-    *   **Coolant Temperature:**
-        *   *CDCEmu:* Byte 1 (`Raw - 40` °C)
-        *   *PSACANBridge:* Byte 5 (`Raw - 40` °C)
-        *   *Your 407 Handler:* Uses `0x0B6` Byte 5.
-    *   **Turn Indicators:** Byte 0, Bit 0 (Left), Bit 1 (Right) - Consistent.
+*   **Signals (Conflicting Interpretations - VERIFY ON TARGET 407):**
+    | Byte | Bit(s)        | Description                     | Proxy Use                     | Notes                                       |
+    | :--- | :------------ | :------------------------------ | :---------------------------- | :------------------------------------------ |
+    | 0    | Bit 3 (?)     | Reverse Gear Light (1=ON)     | Drive `REAR` pin state        | **Verify bit!** (Log=B0b3, CDCEmu=B7b7, PSB=B0b2) |
+    | 0    | Bit 1         | Right Turn Indicator Light    | Optional: HU Display/Sound    |                                             |
+    | 0    | Bit 0         | Left Turn Indicator Light     | Optional: HU Display/Sound    |                                             |
+    | 3    | `TTTTTTTT`    | Outside Ambient Temperature     | Report via Serial (`0x36` RZC)  | `(Raw * 0.5) - 40` °C. Matches PSB/407 Hdlr. |
+    | 1/5? | `CCCCCCCC`    | Engine Coolant Temperature    | Report via Serial             | Byte varies by source (`CDCEmu`=B1, `PSB`=B5). Use `0x0B6` instead? |
+    | 7    | Bit 7         | Reverse Gear Light (CDCEmu Ver) | Drive `REAR` pin state        | Alternative interpretation.                 |
+    | 5    | `TTTTTTTT`    | Ambient Temp (CDCEmu Ver)     | Report via Serial (`0x36` RZC)  | Different byte than PSB/407 Handler.        |
 
 ---
 
 **CAN ID:** `0x128`
-
 *   **Source:** BSI
 *   **Description:** Dashboard status/indicator lights.
 *   **Period:** ~100ms
-*   **CDCEmu Function (Receiver):** `processFrame` (Decodes multiple light bits)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_128_lights_handler`.
-*   **Signals (Mostly Consistent):**
-    *   Byte 7, Bit 7: Driver Seatbelt Warning Light (1 = On/Unfastened)
-    *   Byte 7, Bit 6: Parking Brake Light (1 = On) - *Indicator only, get state elsewhere.*
-    *   Byte 6, Bit 5: Door/Trunk Open Indicator Light
-    *   Byte 5: Light Status Bits (Bit 7=Sidelights, Bit 6=Low Beam, Bit 5=High Beam, Bit 4=Front Fog, Bit 3=Rear Fog, Bit 2=Right Turn, Bit 1=Left Turn)
-    *   Byte 4, Bit 0: Low Fuel Warning Light
+*   **Signals:**
+    | Byte | Bit(s) | Description                        | Proxy Use                            | Notes                                |
+    | :--- | :----- | :--------------------------------- | :----------------------------------- | :----------------------------------- |
+    | 7    | Bit 7  | Driver Seatbelt Warning Light    | Report via Serial (`0x38` RZC?)    | 1 = Warning/Unfastened           |
+    | 7    | Bit 6  | Parking Brake Light              | Drive `PARK` pin, Report Serial     | 1 = On. Indicator light state only. |
+    | 6    | Bit 5  | Door/Trunk Open Indicator Light  | Info only (Use `0x131` for state) |                                      |
+    | 5    | Bit 7  | Sidelights (Parking Lights) On   | Report via Serial (`0x38` RZC)    |                                      |
+    | 5    | Bit 6  | Low Beam (Near Lights) On      | Report via Serial (Not in `0x38`?) |                                      |
+    | 5    | Bit 5  | High Beam On                     | Optional reporting                 |                                      |
+    | 5    | Bit 4  | Front Fog Lights On              | Optional reporting                 |                                      |
+    | 5    | Bit 3  | Rear Fog Light On                | Optional reporting                 |                                      |
+    | 5    | Bit 2  | Right Turn Signal Indicator      | Optional reporting                 |                                      |
+    | 5    | Bit 1  | Left Turn Signal Indicator       | Optional reporting                 |                                      |
+    | 4    | Bit 0  | Low Fuel Warning Light           | Optional reporting                 |                                      |
 
 ---
 
 **CAN ID:** `0x131`
-
 *   **Source:** BSI (Door Status), Factory Radio (CDC Commands)
 *   **Description:** Door status AND CD Changer commands.
 *   **Period:** ~100ms (Doors), Event-driven (CDC Commands)
-*   **CDCEmu Function (Receiver):** `processFrame` (Doors), `cdc.parseDataFrame131` (CDC Commands)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_131_doors_fuel_handler` for doors. **Ignore CDC command bits for proxy.**
+*   **Proxy Role:** Process Door status bits. Ignore CDC command bits.
+*   **CDC Emulator Role:** Process CDC command bits.
 *   **Signals:**
-    *   **Doors (Consistent):** Byte 1, Bits 0-5 (FL, FR, RL, RR, Bonnet, Tailgate) (1=Open)
-    *   **Fuel Info:** Byte 3 (Used with `0x161`)
-    *   **CDC Commands (Ignored by Proxy):** Various bits in Bytes 0, 1, 4, 5, 6, 7 control CDC functions (Play/Pause, Next/Prev, Disk/Track select, etc.) - *See CDC Emulation section.*
-
+    *   **Doors (Consistent):** Byte 1, Bits 0-5 (FL, FR, RL, RR, Bonnet, Tailgate) (1=Open) -> Use for RZC `0x38`.
+    *   **Fuel Info:** Byte 3 (Used with `0x161`) -> Use for RZC `0x42` (Fuel %).
+    *   **CDC Commands (Ignored by Proxy, Used by CDC Emu):** See CDC Emulation section.
 ---
 
 **CAN ID:** `0x14C` / `0x28C`
@@ -143,29 +139,22 @@ The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO)
 ---
 
 **CAN ID:** `0x161`
-
 *   **Source:** BSI / Engine ECU
 *   **Description:** Oil temperature and Fuel level calculation details.
 *   **Period:** ~1000ms
-*   **CDCEmu Function (Receiver):** `processFrame` (Oil Temp B2, Fuel Calc B3)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_161_temp_handler`.
 *   **Signals (Consistent):**
-    *   Byte 2: Oil Temperature (`Raw + 40` °C, `0xFF`=Invalid)
-    *   Byte 3: Fuel Level Calculation Bits (`Level=(Raw>>2)&0x3F`, `Max=(Raw>>1)&0x7F`)
+    *   Byte 2: Oil Temperature -> Report via Serial (e.g., MQB `0x45`). (`Raw + 40` °C, `0xFF`=Invalid).
+    *   Byte 3: Fuel Level Calculation Bits (`Level=(Raw>>2)&0x3F`, `Max=(Raw>>1)&0x7F`) -> Calculate % for Serial (e.g., MQB `0x42`).
 
 ---
 
 **CAN ID:** `0x168`
-
 *   **Source:** BSI / Sensor
 *   **Description:** Outside temperature and Battery voltage.
 *   **Period:** ~1000ms
-*   **CDCEmu Function (Receiver):** `processFrame` (Temp B0, Volt B1)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_168_temp_battery_handler`.
 *   **Signals (Consistent):**
-    *   Byte 0: Outside Temperature (`Raw * 0.5 - 40` °C, `0xFF`=Invalid)
-    *   Byte 1: Battery Voltage (`Raw * 0.05 + 5.0` V)
-*   **Note:** Conflicts with `simulator/combine` module's use for warning lights. Trust this interpretation for real vehicles.
+    *   Byte 0: Outside Temperature -> Report via Serial (RZC `0x36`, MQB `0x42`/`0x45`). (`Raw * 0.5 - 40` °C, `0xFF`=Invalid).
+    *   Byte 1: Battery Voltage -> Report via Serial (e.g., MQB `0x4D`). (`Raw * 0.05 + 5.0` V).
 
 ---
 
@@ -183,6 +172,17 @@ The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO)
     *   Byte 1: Left Zone Temp (Raw, `(Raw*0.5)+14.0`? Needs mapping)
     *   Byte 0: Right Zone Temp (Raw, `(Raw*0.5)+14.0`? Needs mapping)
 *   **Note:** This is the *status* message. The `simulator/clim` module sends *commands* on this ID with a different structure.
+
+---
+
+**CAN ID:** `0x1A1`
+*   **Source:** BSI
+*   **Description:** BSI Informational/Warning messages for display.
+*   **Period:** Event-driven
+*   **Signals:**
+    *   Byte 1: Message Code (e.g., `0x8D`/`0xE8`=Low Tyre Pressure, `0xE5`=TPMS Fault).
+    *   Byte 5, Bit 7: Show Flag (1 = Message Active).
+*   **Proxy Use:** Monitor for TPMS codes (`0x8D`/`0xE8`/`0xE5`) to update `carstate.tpms_status` for mapping to MQB `0x46`.
 
 ---
 
@@ -204,71 +204,75 @@ The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO)
 ---
 
 **CAN ID:** `0x221`
-
 *   **Source:** BSI
 *   **Description:** Instantaneous Trip Computer Data.
 *   **Period:** ~500ms-1000ms
-*   **CDCEmu Function (Receiver):** `processFrame` (Inst Cons B1-2, Range B3-4)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_221_trip_inst_handler`.
-*   **Signals (Consistent Byte Positions, Scaling Verified for RZC):**
-    *   Bytes 1-2: Instantaneous Fuel Consumption (`Raw * 0.1` L/100km? - **Verify scale**)
-    *   Bytes 3-4: Range (DTE) (km)
+*   **Signals:**
     *   Byte 0: Contains display flags/stalk button info.
+    *   Bytes 1-2: Instantaneous Fuel Consumption -> Report via Serial (RZC `0x33`, MQB `0x43`). (Scaling: L/100km * 10 for RZC).
+    *   Bytes 3-4: Range (DTE) (km) -> Report via Serial (RZC `0x33`, MQB `0x43`).
 
 ---
 
 **CAN ID:** `0x261` & `0x2A1`
-
 *   **Source:** BSI
-*   **Description:** Trip Computer Data for Trip 2 (`0x261`) & Trip 1 (`0x2A1`).
+*   **Description:** Trip Computer Data for Trip 2 (`0x261`) & Trip 1 (`0x2A1`). **(Presence/Structure on 407 needs verification).**
 *   **Period:** ~500ms-1000ms
-*   **CDCEmu Function (Receiver):** Not explicitly shown, but structure likely assumed.
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_261_trip2_handler`, `peugeot_407_ms_2A1_trip1_handler`.
-*   **Signals (Based on C4 B7 structure, Scaling Verified for RZC):**
-    *   Byte 0: Average Speed (km/h)
-    *   Bytes 1-2: Distance Traveled (km)
-    *   Bytes 3-4: Average Fuel Consumption (`Raw * 0.1` L/100km? - **Verify scale**)
-*   **Note:** **Must confirm these IDs and structure exist on the Peugeot 407.**
+*   **Signals (Assuming C4 B7 structure):**
+    *   Byte 0: Average Speed (km/h) -> Report via Serial (RZC `0x34`/`0x35`, MQB `0x43`/`0x44`).
+    *   Bytes 1-2: Distance Traveled (km) -> Report via Serial (RZC `0x34`/`0x35`, MQB `0x44`).
+    *   Bytes 3-4: Average Fuel Consumption (L/100km * 10 for RZC) -> Report via Serial (RZC `0x34`/`0x35`, MQB `0x43`/`0x44`).
 
 ---
 
 **CAN ID:** `0x2B6`, `0x336`, `0x3B6`
-
 *   **Source:** BSI
 *   **Description:** Vehicle Identification Number (VIN), split across messages.
 *   **Period:** Infrequent / On Request?
-*   **CDCEmu Function (Receiver):** `processFrame` (Assembles VIN)
-*   **Canbox Proxy Role (Receiver):** Use `peugeot_407_ms_vin_*_handler`.
-*   **Signals:**
-    *   `0x336`: Bytes 0-2 contain ASCII characters 1-3 of VIN.
-    *   `0x3B6`: Bytes 0-5 contain ASCII characters 4-9 of VIN.
-    *   `0x2B6`: Bytes 0-7 contain ASCII characters 10-17 of VIN.
+*   **Signals (Consistent):** ASCII characters of VIN. -> Assemble for protocols needing VIN.
+
+---
+
+### Steering Wheel / Panel Controls
+
+**CAN ID:** `0x21F`
+*   **Source:** Steering Wheel Controls Module (COV)
+*   **Description:** Steering wheel button presses and scroll wheel.
+*   **Period:** Event-driven
+*   **Proxy Role:** Detect state changes/deltas, map to serial protocol button codes (e.g., RZC `0x02`).
+*   **Signals (Consistent):**
+    *   Byte 3, Bit 3: Volume Up (RZC `0x14`, MQB `0x01`)
+    *   Byte 3, Bit 2: Volume Down (RZC `0x15`, MQB `0x02`)
+    *   Byte 7, Bit 7: Seek Forward / Next (RZC `0x12`, MQB `0x03`)
+    *   Byte 7, Bit 6: Seek Backward / Previous (RZC `0x13`, MQB `0x04`)
+    *   Byte 1, Bit 1: Source (?) (RZC `0x11`, MQB `0x0A`)
+    *   Byte 0: Scroll Wheel Delta (Map to RZC `0x17`/`0x18`, MQB may use different codes/logic)
 
 ---
 
 **CAN ID:** `0x3E5`
-
-*   **Source:** Radio / Multimedia Panel
-*   **Description:** Radio/Head Unit physical button presses.
+*   **Source:** Radio / Multimedia Panel (FMUX)
+*   **Description:** Physical button presses on the main radio/media panel.
 *   **Period:** Event-driven
-*   **CDCEmu Function (Receiver):** `processFrame` (Decodes various panel buttons)
-*   **Canbox Proxy Role (Receiver):** Optional, if needing to react to factory panel buttons.
-*   **Signals:** Bits map to buttons like MENU, TEL, CLIM, TRIP, MODE, AUDIO, OK, ESC, DARK, Arrows etc. (See `PSACAN.md`).
+*   **Proxy Role:** Optional: Detect state changes, map to serial protocol button codes.
+*   **Signals (Bits map 1:1 to buttons, see `PSACAN.md`):** MENU, TEL, CLIM, TRIP, MODE, AUDIO, OK, ESC, DARK, Arrows, etc. Map to corresponding RZC `0x02` codes or MQB `0x20` codes if needed.
 
 ---
 
-## CD Changer Emulation CAN Messages (Derived from CDCEmu & PSACAN.md)
+### Climate Control
 
-**NOTE:** This section details messages involved if the `canbox` were to *emulate* a CD Changer for the factory head unit (e.g., RTx). This is **different** from the basic proxy function.
+**CAN ID:** `0x1D0`
+*   **Source:** Climate Control ECU
+*   **Description:** Climate control *status* reported by the ECU.
+*   **Period:** ~100ms
+*   **Proxy Role:** Read status, map to serial protocol AC message (RZC `0x21`?, MQB `0x21`).
+*   **Signals (Based on `PSACANBridge`/`CDCEmu`):** See previous detailed description. Includes Fan Speed, Air Direction, AC/Recirc status, Temperatures (Raw).
 
-### 1. Core Principles (CDC Emulation)
+---
 
-*   **Goal:** Make an external audio source (like Android HU output) appear as a factory CD Changer to the original PSA Head Unit (Radio).
-*   **Listen:** Monitor CAN for Radio status (`0x165`) and CDC commands from the Radio (`0x131`).
-*   **Send:** Transmit CDC status (`0x162`, `0x1A0`, etc.), track info (`0x1E2`, `0x3A5`), disk info (`0x0E2`, `0x1A2`, `0x365`), tray status (`0x325`), and potentially text (`0x0A4`, `0x125`) onto the CAN bus, mimicking a real changer.
-*   **State:** Maintain internal state (current disk/track/time, play/pause, repeat/random).
+### CD Changer Emulation Related Messages
 
-### 2. Key CAN IDs for CDC Emulation
+**NOTE:** These IDs are primarily relevant if implementing CDC emulation. A basic proxy ignores/doesn't send these.
 
 **A. Commands Sent by Radio -> Received by Emulator:**
 
@@ -329,7 +333,7 @@ The primary focus is on messages typically found on the **CAN Comfort (CAN-INFO)
 *   **`0x0A4` / `0x125` (Track Text / Lists):** These messages use the ISO 15765-2 multi-frame protocol to send longer text strings (like track titles/artists or track lists). Implementing this requires handling the multi-frame protocol (segmentation, flow control).
     *   **Emulator Action:** If the audio source provides metadata, the emulator needs to format it according to these message structures and handle the multi-frame transmission sequence. This adds significant complexity.
 
-**C. Related Status Messages (Used by Emulator):**
+**C. Related Status (Monitored by Emulator):**
 
 *   **`0x165` (Radio Status):** The emulator monitors this message sent *by the Radio*.
     *   **Bytes 2-4, Bits (`SSS`):** Indicates the currently selected audio source on the radio. The emulator should only become "active" (respond to `0x131`, send status) when the Radio selects the CD Changer source.
