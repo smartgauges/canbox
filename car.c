@@ -209,6 +209,10 @@ uint8_t is_timeout(struct msg_desc_t * desc)
 #include "cars/toyota_premio_26x.c"
 #endif
 
+#ifdef QCAR
+#include "qt/qcar.c"
+#endif
+
 enum e_car_t car_get_next_car(void)
 {
 	int car = carstate.car;
@@ -349,6 +353,11 @@ void car_process(uint8_t ticks)
 			in_process(can, ticks, toyota_premio_26x_ms, sizeof(toyota_premio_26x_ms)/sizeof(toyota_premio_26x_ms[0]));
 #endif
 			break;
+#ifdef QCAR
+		case e_car_qcar:
+			qcar_process();
+			break;
+#endif
 		default:
 			break;
 	}

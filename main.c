@@ -185,7 +185,7 @@ static void usart_process(void)
 
 	if (!debug_on) {
 
-		canbox_cmd_process(ch);
+		canbox_rx_process(ch);
 
 		if (ch == 'O') {
 

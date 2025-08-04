@@ -18,7 +18,7 @@ void canbox_mode(void);
 void canbox_cont(void);
 void canbox_mici(void);
 
-void canbox_cmd_process(uint8_t ch);
+void canbox_rx_process(uint8_t ch);
 void canbox_park_process(void);
 
 #ifdef __cplusplus

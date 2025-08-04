@@ -15,6 +15,9 @@ enum e_car_t
 	e_car_skoda_fabia,
 	e_car_q3_2015,
 	e_car_toyota_premio_26x,
+#ifdef QCAR
+	e_car_qcar,
+#endif
 	e_car_nums,
 };
 

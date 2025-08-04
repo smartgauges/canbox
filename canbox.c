@@ -520,6 +520,28 @@ void canbox_mici(void)
 	}
 }
 
+static void canbox_raise_cmd_process(uint8_t *cmdbuf, uint8_t len)
+{
+	(void)len;
+	uint8_t cmd = cmdbuf[1];
+
+	//start/stop communication
+	if (cmd == 0x81) {
+	}
+	//request ID
+	else if (cmd == 0x90) {
+
+	}
+	//amplifier
+	else if (cmd == 0xa0) {
+
+	}
+	//set time
+	else if (cmd == 0xa6) {
+
+	}
+}
+
 enum rx_state
 {
 	RX_WAIT_START,
@@ -534,7 +556,7 @@ static uint8_t rx_buffer[RX_BUFFER_SIZE];
 static uint8_t rx_idx = 0;
 static uint8_t rx_state = RX_WAIT_START;
 /*header type size data chksum*/
-static void canbox_raise_cmd_process(uint8_t ch)
+static void canbox_raise_rx_process(uint8_t ch)
 {
 	switch (rx_state) {
 
@@ -578,10 +600,7 @@ static void canbox_raise_cmd_process(uint8_t ch)
 				uint8_t ack = 0xff;
 				hw_usart_write(hw_usart_get(), (uint8_t *)&ack, 1);
 
-				char buf[64];
-				uint8_t cmd = rx_buffer[1];
-				snprintf(buf, sizeof(buf), "\r\nnew cmd %" PRIx8 "\r\n", cmd);
-				hw_usart_write(hw_usart_get(), (uint8_t *)buf, strlen(buf));
+				canbox_raise_cmd_process(rx_buffer, rx_idx);
 			}
 
 			break;
@@ -591,10 +610,10 @@ static void canbox_raise_cmd_process(uint8_t ch)
 		rx_state = RX_WAIT_START;
 }
 
-void canbox_cmd_process(uint8_t ch)
+void canbox_rx_process(uint8_t ch)
 {
 	if ((e_cb_raise_vw_pq == conf_get_canbox()) || (e_cb_raise_vw_pq == conf_get_canbox()))
-		canbox_raise_cmd_process(ch);
+		canbox_raise_rx_process(ch);
 }
 
 void canbox_process(void)
